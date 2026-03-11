@@ -1,0 +1,2 @@
+#define SECRET_OPTIONAL_PASS "Hoi123456789"
+#define SECRET_SSID "Telstra ai"
