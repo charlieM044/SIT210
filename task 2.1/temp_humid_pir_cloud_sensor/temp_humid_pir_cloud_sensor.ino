@@ -1,6 +1,7 @@
 #include "DHT.h"
 #include <WiFi.h>
 #include "ThingSpeak.h"
+#include "secrets.h"
 
 #define DHTTYPE DHT22
 #define DHTPIN 11
@@ -16,45 +17,46 @@ WiFiClient client;
 unsigned long myChannelNumber = 3286547; // Replace with your Channel ID
 const char *myWriteAPIKey = "CK3HB4WORSVO66DS"; // Replace with your Write API Key
 
-void setup() {
-  Serial.begin(9600);
-  pinMode(pirPin, INPUT);
-  dht.begin();
-
-  WiFi.begin("Telstra ai", "Hoi123456789"); // Connect to Wi-Fi
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi connected");
-
-  ThingSpeak.begin(client); // Initialize ThingSpeak
-}
-
-void loop() {
-  
+int readdht() // handles temperature and Humidity logic
+{
   Temp = dht.readTemperature();
   Humid = dht.readHumidity();
-  Pir = analogRead(pirPin);
+
   
 
   if (isnan(Temp) || isnan(Humid)) {
     Serial.println("Failed to read DHT sensor");
-    return;
+    return 0;
   }
-
 
   Serial.print("Temp: ");
   Serial.println(Temp);
   Serial.print("Humid: ");
   Serial.println(Humid);
-  Serial.print("PIR: ");
-  Serial.println(Pir);
 
+  return 1;
+}
 
-  ThingSpeak.setField(1, Temp);
-  ThingSpeak.setField(2, Humid);
+int readPir() // handles Pir sensor
+{
+
+    Pir = analogRead(pirPin);
+
+    if (isnan(Pir))
+    {
+      Serial.print("failed to read PIR");
+      return 0;
+     }
+    Serial.print("PIR: ");
+    Serial.println(Pir);
+
+  return Pir;
+}
+
+void dothingspeak()  // handles thing speak logic 
+{
+  ThingSpeak.setField(1,Temp);
+  ThingSpeak.setField(2,Humid);
   ThingSpeak.setField(3, Pir);
 
   int result = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
@@ -66,4 +68,28 @@ void loop() {
   }
 
   delay(30000); 
+}
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(pirPin, INPUT);
+  dht.begin();
+
+  WiFi.begin("-----------", "-----------"); // Connect to Wi-Fi
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nWiFi connected");
+
+  ThingSpeak.begin(client); // Initialize ThingSpeak
+}
+
+
+void loop()  // main loop
+{
+  readdht();
+  readPir();
+  dothingspeak();
 }
