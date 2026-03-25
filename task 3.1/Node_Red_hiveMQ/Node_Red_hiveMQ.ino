@@ -4,7 +4,6 @@
 #include <BH1750.h>
 #include "secrets.h"
 
-
 // Light threshold (lux) - adjust based on your environment
 const float LIGHT_THRESHOLD = 50;
 
@@ -42,13 +41,10 @@ void setup() {
   Wire.begin();
   lightMeter.begin();
   connectWiFi();
-  client.setServer(mqtt_server, mqtt_port);
 }
 
 void publishtopic(float lux)
 {
-    //String luxString = String(lux, 2);
-  //client.publish(mqtt_topic, luxString.c_str());
   // Trigger logic - publish status only on state CHANGE
   if (lux >= LIGHT_THRESHOLD && !sunlightActive) {
     sunlightActive = true;

@@ -14,6 +14,8 @@ int Humid;
 int Pir;
 
 WiFiClient client;
+unsigned long myChannelNumber = 3286547; // Replace with your Channel ID
+const char *myWriteAPIKey = "CK3HB4WORSVO66DS"; // Replace with your Write API Key
 
 int readdht() // handles temperature and Humidity logic
 {
@@ -31,9 +33,8 @@ int readdht() // handles temperature and Humidity logic
   Serial.println(Temp);
   Serial.print("Humid: ");
   Serial.println(Humid);
- 
 
-  return Temp, Humid;
+  return 1;
 }
 
 int readPir() // handles Pir sensor
@@ -43,7 +44,7 @@ int readPir() // handles Pir sensor
 
     if (isnan(Pir))
     {
-      Serial.print("faild to red Pir");
+      Serial.print("failed to read PIR");
       return 0;
      }
     Serial.print("PIR: ");
