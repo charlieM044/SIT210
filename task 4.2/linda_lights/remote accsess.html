@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Linda's Lights</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.0.5/mqtt.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #000000;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    #status {
+      font-size: 0.85em;
+      color: #888;
+      margin-bottom: 24px;
+    }
+
+    #status.connected {
+      color: #27ae60;
+    }
+
+    #status.disconnected {
+      color: #e74c3c;
+    }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin: 10px 0;
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .all-card {
+      background: #4a90e2;
+    }
+
+    .all-card .room {
+      color: white;
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+
+    .room {
+      font-size: 1.05em;
+      color: #444;
+    }
+
+    .switch {
+      position: relative;
+      width: 60px;
+      height: 32px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #5c0050;
+      border-radius: 32px;
+      transition: .3s;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: '';
+      height: 24px;
+      width: 24px;
+      left: 4px;
+      bottom: 4px;
+      background: rgb(235, 157, 245);
+      border-radius: 50%;
+      transition: .3s;
+    }
+
+    input:checked+.slider {
+      background: #54f523;
+    }
+
+    .all-card input:checked+.slider {
+      background: #3427ae;
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(28px);
+    }
+
+    hr {
+      width: 100%;
+      max-width: 380px;
+      border: none;
+      border-top: 1px solid #ddd;
+      margin: 6px 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Linda's Lights</h1>
+  <div id="status" class="disconnected">⏳ Connecting...</div>
+
+  <div class="card all-card">
+    <span class="room"> All Lights</span>
+    <label class="switch">
+      <input type="checkbox" id="all" onchange="handleAll(this)" />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <hr />
+
+  <div class="card">
+    <span class="room">🛋️ Living Room</span>
+    <label class="switch">
+      <input type="checkbox" id="livingRoom" onchange="handleRoom('livingRoom', this)" />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="card">
+    <span class="room">🚿 Bathroom</span>
+    <label class="switch">
+      <input type="checkbox" id="bathroom" onchange="handleRoom('bathroom', this)" />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="card">
+    <span class="room">🚪 Closet</span>
+    <label class="switch">
+      <input type="checkbox" id="closet" onchange="handleRoom('closet', this)" />
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <script src="secrets.js"></script> 
+  <script>
+  
+  const TOPICS = {
+    livingRoom: "linda/lights/livingRoom",
+    bathroom: "linda/lights/bathroom",
+    closet: "linda/lights/closet"
+  };
+
+  const statusEl = document.getElementById("status");
+  let applyingState = false;
+
+  const client = mqtt.connect(`wss://${MQTT_HOST}:8884/mqtt`, {
+    username: MQTT_USER,
+    password: MQTT_PASS,
+    clientId: "linda-html-" + Math.random().toString(16).slice(2)
+  });
+
+  client.on("connect", () => {
+    statusEl.textContent = "Connected";
+    statusEl.className = "connected";
+    Object.values(TOPICS).forEach(t => client.subscribe(t));
+  });
+
+  client.on("offline", () => {
+    statusEl.textContent = "Disconnected";
+    statusEl.className = "disconnected";
+  });
+
+  client.on("message", (topic, payload) => {
+    const state = payload.toString() === "1";
+    const room = Object.keys(TOPICS).find(k => TOPICS[k] === topic);
+    if (!room) return;
+
+    applyingState = true;
+    document.getElementById(room).checked = state;
+    const allOn = ["livingRoom", "bathroom", "closet"].every(r => document.getElementById(r).checked);
+    document.getElementById("all").checked = allOn;
+    applyingState = false;
+  });
+
+  function handleRoom(room, cb) {
+      if (applyingState) return;
+      client.publish(TOPICS[room], cb.checked ? "1" : "0", { retain: true });
+    }
+
+    function handleAll(cb) {
+      if (applyingState) return;
+      Object.keys(TOPICS).forEach(room => {
+        document.getElementById(room).checked = cb.checked;
+        client.publish(TOPICS[room], cb.checked ? "1" : "0", { retain: true });
+      });
+    }
+  </script>
+</body>
+
+</html>
+
+
