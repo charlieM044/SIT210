@@ -117,7 +117,7 @@ void setup() {
   Serial.print("start");
 }
 
-<<<<<<< HEAD
+
 void loop() {
   if (!client.connected()) connectMQTT();
   client.loop();
@@ -145,36 +145,6 @@ void loop() {
 
   client.loop();
   delay(100);
-=======
 
-void loop() {
-  // put your main code here, to run repeatedly:
-      if (!client.connected()) connectMQTT();
-  client.loop();
-
-   
-   Serial.print("Distance: ");
-
-
-  distance = getUltrasonicDistance();
-  String DistanceString = String(distance);
-   
-    client.publish(mqtt_topic,  DistanceString.c_str() );
-    Serial.println(distance);
-
-if (distance > 0 && distance <= 5)
-    {
-      client.publish("ES/Pat", mqtt_user);
-    }
-    else if (distance > 5 &&  distance <=15)
-    {
-      client.publish("ES/Wave",mqtt_user);
-    }
-
-    client.loop();
-
-   
-
-  
->>>>>>> 0cce2a8266056610effa921b99b6ade14a42c91a
 }
+
