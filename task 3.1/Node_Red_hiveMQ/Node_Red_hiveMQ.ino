@@ -2,7 +2,16 @@
 #include <PubSubClient.h>
 #include <Wire.h>
 #include <BH1750.h>
-#include "secrets.h"
+//#include "secrets.h"
+
+
+const char* ssid        = "Telstra ai";
+const char* password    = "Hoi123456789";
+const char* mqtt_server = "6f3605820d7e4e06a91e9c9f08a214e3.s1.eu.hivemq.cloud";
+const int   mqtt_port   = 8883;
+const char* mqtt_user   = "testing";
+const char* mqtt_password = "*Testing1";
+
 
 // Light threshold (lux) - adjust based on your environment
 const float LIGHT_THRESHOLD = 50;
@@ -21,6 +30,7 @@ void connectWiFi() {
     Serial.print(".");
   }
   Serial.println("\nWiFi connected!");
+   delay(1500);
 }
 
 void connectMQTT() {
@@ -32,6 +42,7 @@ void connectMQTT() {
       Serial.print("Failed, rc=");
       Serial.println(client.state());
       delay(3000);
+
     }
   }
 }
@@ -41,6 +52,7 @@ void setup() {
   Wire.begin();
   lightMeter.begin();
   connectWiFi();
+  client.setServer(mqtt_server, mqtt_port);
 }
 
 void publishtopic(float lux)

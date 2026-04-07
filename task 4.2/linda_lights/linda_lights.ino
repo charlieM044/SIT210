@@ -130,7 +130,7 @@ void setup()
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\nWiFi Connected! IP: " + WiFi.localIP().toString());
+  //Serial.println("\nWiFi Connected! IP: " + WiFi.localIP().toString());
 
   connectMQTT();
 }
