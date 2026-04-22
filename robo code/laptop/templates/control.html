@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Control Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f44336;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.online {
+            background: #4caf50;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .status-box {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        
+        .btn-start {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn-start:hover {
+            background: #45a049;
+        }
+        
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+        
+        .btn-stop:hover {
+            background: #da190b;
+        }
+        
+        .movement-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .movement-btn {
+            padding: 20px 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .movement-btn:hover {
+            background: #5568d3;
+            transform: scale(1.05);
+        }
+        
+        .movement-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .forward { grid-column: 2; grid-row: 1; }
+        .left { grid-column: 1; grid-row: 2; }
+        .stop-center { grid-column: 2; grid-row: 2; background: #ff9800; }
+        .right { grid-column: 3; grid-row: 2; }
+        .backward { grid-column: 2; grid-row: 3; }
+        
+        .emergency-stop {
+            width: 100%;
+            padding: 20px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+        }
+        
+        .emergency-stop:hover {
+            background: #da190b;
+        }
+        
+        .video-placeholder {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-bottom: 15px;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            margin-top: 20px;
+            font-size: 1.1em;
+        }
+        
+        .back-btn:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 Robot Control Panel</h1>
+            <p style="color: rgba(255,255,255,0.9);">Remote robot command interface</p>
+        </header>
+        
+        <div class="controls-grid">
+            <div class="card">
+                <h2>📹 Video Feed</h2>
+                <div class="video-placeholder">
+                    Live stream (connecting...)
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>🎮 Control Commands</h2>
+                
+                <div class="status-box">
+                    <span class="status-indicator" id="statusLight"></span>
+                    <span id="statusText">Initializing...</span>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-start" onclick="startRobot()">▶️ START</button>
+                    <button class="btn btn-stop" onclick="stopRobot()">⏹️ STOP</button>
+                </div>
+                
+                <h3 style="margin: 20px 0 10px 0; color: #333;">Movement Controls</h3>
+                <div class="movement-pad">
+                    <button class="movement-btn forward" onclick="moveForward()">⬆️</button>
+                    <button class="movement-btn left" onclick="moveLeft()">⬅️</button>
+                    <button class="movement-btn stop-center" onclick="stopMotors()">⏸️</button>
+                    <button class="movement-btn right" onclick="moveRight()">➡️</button>
+                    <button class="movement-btn backward" onclick="moveBackward()">⬇️</button>
+                </div>
+                
+                <button class="emergency-stop" onclick="emergencyStop()">🚨 EMERGENCY STOP</button>
+                
+                <p style="color: #666; font-size: 0.9em; margin-top: 15px; text-align: center;">
+                    💡 Use arrow keys to control movement
+                </p>
+            </div>
+        </div>
+        
+        <a href="/" class="back-btn">← Back to Dashboard</a>
+    </div>
+    
+    <script>
+        let isRunning = false;
+        
+        function updateStatus(message, online = false) {
+            document.getElementById('statusText').textContent = message;
+            const light = document.getElementById('statusLight');
+            if (online) {
+                light.classList.add('online');
+            } else {
+                light.classList.remove('online');
+            }
+        }
+        
+        function startRobot() {
+            fetch('/api/control/start', { method: 'POST' })
+                .then(r => r.json())
+                .then(() => {
+                    isRunning = true;
+                    updateStatus('🟢 Online & Running', true);
+                })
+                .catch(err => {
+                    console.error('Error starting robot:', err);
+                    updateStatus('❌ Connection Error', false);
+                });
+        }
+        
+        function stopRobot() {
+            fetch('/api/control/stop', { method: 'POST' })
+                .then(r => r.json())
+                .then(() => {
+                    isRunning = false;
+                    updateStatus('🔴 Stopped', false);
+                })
+                .catch(err => {
+                    console.error('Error stopping robot:', err);
+                    updateStatus('❌ Connection Error', false);
+                });
+        }
+        
+        function moveForward() {
+            if (!isRunning) return;
+            fetch('/api/control/forward', { method: 'POST' })
+                .catch(() => updateStatus('❌ Command Failed', false));
+        }
+        
+        function moveBackward() {
+            if (!isRunning) return;
+            fetch('/api/control/backward', { method: 'POST' })
+                .catch(() => updateStatus('❌ Command Failed', false));
+        }
+        
+        function moveLeft() {
+            if (!isRunning) return;
+            fetch('/api/control/left', { method: 'POST' })
+                .catch(() => updateStatus('❌ Command Failed', false));
+        }
+        
+        function moveRight() {
+            if (!isRunning) return;
+            fetch('/api/control/right', { method: 'POST' })
+                .catch(() => updateStatus('❌ Command Failed', false));
+        }
+        
+        function stopMotors() {
+            fetch('/api/control/stop-motors', { method: 'POST' })
+                .catch(() => console.error('Stop failed'));
+        }
+        
+        function emergencyStop() {
+            stopRobot();
+            stopMotors();
+            updateStatus('🚨 EMERGENCY STOP ACTIVATED', false);
+        }
+        
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (!isRunning) return;
+            
+            switch(e.key) {
+                case 'ArrowUp': moveForward(); e.preventDefault(); break;
+                case 'ArrowDown': moveBackward(); e.preventDefault(); break;
+                case 'ArrowLeft': moveLeft(); e.preventDefault(); break;
+                case 'ArrowRight': moveRight(); e.preventDefault(); break;
+                case ' ': stopMotors(); e.preventDefault(); break;
+            }
+        });
+        
+        // Initialize status
+        window.addEventListener('load', () => {
+            updateStatus('🔌 Ready to Connect', false);
+        });
+    </script>
+</body>
+</html>
