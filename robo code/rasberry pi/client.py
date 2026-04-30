@@ -1,5 +1,6 @@
 import requests
 import json
+from motorcontroller import MotorController
 from saveData import LocalDataManager
 import serial
 import time
@@ -9,6 +10,7 @@ class RobotClient:
         self.server_url = server_url
         self.storage = LocalDataManager('./robot_inspection_data')
         self.arduino = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+        self.motor_controller = MotorController()
         time.sleep(2)
         print(f"Connected to server: {self.server_url}")
     
@@ -65,17 +67,22 @@ class RobotClient:
             return None
     
     def send_motor_command(self, command):
-        """Send command to Arduino motors"""
+        """Send command to motors"""
         if command == 'forward':
-            self.arduino.write(b'F')
+            self.motor_controller.forward()
+            print("Command: Move Forward")
         elif command == 'backward':
-            self.arduino.write(b'B')
+            self.motor_controller.backward()
+            print("Command: Move Backward")
         elif command == 'left':
-            self.arduino.write(b'L')
+            self.motor_controller.left()
+            print("Command: Turn Left")
         elif command == 'right':
-            self.arduino.write(b'R')
+            self.motor_controller.right()
+            print("Command: Turn Right")
         elif command == 'stop':
-            self.arduino.write(b'S')
+            print("Command: Stop")
+            self.motor_controller.stop()
     
     def run(self):
         """Main loop - collect data and check for commands"""

@@ -13,7 +13,7 @@ void setup() {
 }
 
 void loop() {
-  readUltraSonic();
+ 
   readMoisture();
 
   updateWallAvoidance();
@@ -33,5 +33,4 @@ void loop() {
   }
   
   delay(100);
-}
 }
