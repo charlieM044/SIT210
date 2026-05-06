@@ -1,7 +1,7 @@
 
 
 // Ultrasonic pins
-const int TRIG_PIN1 = 6;
+const int TRIG_PIN1 = 5;
 const int ECHO_PIN1 = 3;
 const int TRIG_PIN2 = 8;
 const int ECHO_PIN2 = 9;
@@ -18,6 +18,7 @@ const float MAX_TURN_ANGLE = 45.0;
 float wallAngle = 0;
 float turnAmount = 0;
 float minDistance = 0;
+
 
 void initWallAvoidance() {
   if (!IMU.begin()) {
@@ -37,6 +38,8 @@ void updateWallAvoidance() {
   // Get distances
   float d1 = getDistance(TRIG_PIN1, ECHO_PIN1);
   float d2 = getDistance(TRIG_PIN2, ECHO_PIN2);
+   if (d1 <1 || d2 <1)
+   {return;}
   
   // Calculate wall angle
   wallAngle = atan2(d2 - d1, L) * (180.0 / PI);
@@ -50,6 +53,10 @@ void updateWallAvoidance() {
   if (isWallDetected()) {
     float requiredTurn = wallAngle;
     float remainingTurn = requiredTurn - turnAmount;
+
+    Serial.println(d1);
+  
+    Serial.println(d2);
     
     Serial.print("WALL DETECTED! Distance: ");
     Serial.print(minDistance);
