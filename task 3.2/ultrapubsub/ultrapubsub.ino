@@ -106,11 +106,11 @@ void setup() {
   pinMode(LED2, OUTPUT);
 
 
-  Wire.begin();
+  // Wire.begin();
 
-  connectWiFi();
-  client.setServer(mqtt_server, mqtt_port);
-  client.setCallback(callback);  // put this in setup()
+  // connectWiFi();
+  // client.setServer(mqtt_server, mqtt_port);
+  // client.setCallback(callback);  // put this in setup()
 
   // Start the serial monitor:
   Serial.begin(9600);
@@ -119,8 +119,10 @@ void setup() {
 
 
 void loop() {
-  if (!client.connected()) connectMQTT();
-  client.loop();
+
+
+  //if (!client.connected()) connectMQTT();
+//  client.loop();
 
   int distance = getUltrasonicDistance();
   Serial.print("Distance: ");
@@ -131,19 +133,19 @@ void loop() {
 
 
 
-    if (distance > 0 && distance <= 5) {
-      Serial.println("Pat detected - publishing to ES/Pat");
-      client.publish("ES/Pat", mqtt_user);
-      delay(2000);  // throttle to prevent broker disconect
-    }
-    else if (distance > 5 && distance <= 15) {
-      Serial.println("Wave detected - publishing to ES/Wave");
-      client.publish("ES/Wave", mqtt_user);
-      delay(2000);   // throttle to prevent broker disconect
-    }
+    // if (distance > 0 && distance <= 5) {
+    //   Serial.println("Pat detected - publishing to ES/Pat");
+    //   client.publish("ES/Pat", mqtt_user);
+    //   delay(2000);  // throttle to prevent broker disconect
+    // }
+    // else if (distance > 5 && distance <= 15) {
+    //   Serial.println("Wave detected - publishing to ES/Wave");
+    //   client.publish("ES/Wave", mqtt_user);
+    //   delay(2000);   // throttle to prevent broker disconect
+    // }
   
 
-  client.loop();
+ // client.loop();
   delay(100);
 
 }
