@@ -123,16 +123,18 @@ def stream_control(action):
 def video_feed():
     """Proxy the MJPEG stream from the Pi."""
     try:
-        r = requests.get(f'{PI_SERVER}/video_feed', stream=True, timeout=10)
+        # 1. Set timeout=None because a video stream never "ends"
+        # 2. Use stream=True to process the data as it arrives
+        r = requests.get(f'{PI_SERVER}/video_feed', stream=True, timeout=None)
+        
+        # 3. Pass the response directly using stream_with_context
         return Response(
-            stream_with_context(r.iter_content(chunk_size=4096)),
-            content_type=r.headers.get('content-type',
-                         'multipart/x-mixed-replace; boundary=frame'),
+            stream_with_context(r.iter_content(chunk_size=1024)),
+            content_type=r.headers.get('content-type')
         )
     except Exception as e:
-        log.error(f"video_feed: {e}")
+        log.error(f"video_feed proxy error: {e}")
         return jsonify({'error': str(e)}), 503
-
 # ── HTML pages ─────────────────────────────────────────────────────────────────
 @app.route('/')
 def index():    return render_template('index.html')
