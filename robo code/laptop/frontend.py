@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 # Pi always has this IP when hosting its own hotspot
-PI_SERVER = 'http://192.168.4.1:5000'
+PI_SERVER = 'http://10.222.154.118:5000'
 
 # ── Connection check (cached 5 s to avoid hammering the Pi) ───────────────────
 _last_check  = 0
