@@ -1,0 +1,26 @@
+{
+  "inspection_date": "2026-04-22T17:53:36.707249",
+  "total_readings": 1,
+  "statistics": {
+    "average": 75.5,
+    "max": 75.5,
+    "min": 75.5,
+    "count": 1,
+    "critical_count": 0
+  },
+  "readings": [
+    {
+      "id": 1,
+      "timestamp": "2026-04-22 07:53:36",
+      "gps_lat": -37.8136,
+      "gps_lng": 144.9631,
+      "date": "2026-04-22",
+      "time": "17:53:36",
+      "moisture": 75.5,
+      "ir_temp": 18.2,
+      "severity": "Moderate",
+      "image": null
+    }
+  ],
+  "critical_locations": []
+}
