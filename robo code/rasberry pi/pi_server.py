@@ -9,6 +9,9 @@ import serial
 import time
 import platform
 
+# You need a way to access the camera instance created in RobotMain
+# A common way is to pass it to the app or use a singleton
+global_camera = None
 app = Flask(__name__)
 CORS(app)
 
@@ -218,15 +221,15 @@ def stream_stop():
 @app.route('/video_feed')
 def video_feed():
     def generate():
-        while state['streaming']:
-            frame = camera.get_frame()
-            if frame:
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            else:
-                time.sleep(0.033)
-    return Response(generate(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+        while True:
+            if global_camera:
+                frame = global_camera.get_frame() # This gets the JPEG bytes
+                if frame:
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            time.sleep(0.04) # Match the camera FPS (~25fps)
+            
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)

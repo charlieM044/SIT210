@@ -5,6 +5,7 @@ from datetime import datetime
 
 # Import all modules
 
+import pi_server
 from saveData import LocalDataManager
 from camera import CameraManager, IRCamera
 from pi_server import app as flask_app
@@ -60,6 +61,10 @@ class RobotMain:
     def start_all(self):
         """Start all components in separate threads"""
         print("\n[Main] Starting all components...\n")
+        
+        self.camera.start_streaming()
+        import pi_server
+        pi_server.global_camera = self.camera  # Make camera accessible to Flask routes
         
         # Flask server thread
         flask_thread = threading.Thread(
