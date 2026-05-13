@@ -18,7 +18,9 @@ CORS(app)
 # ── Hardware init ──────────────────────────────────────────────────────────────
 storage = LocalDataManager('./robot_inspection_data')
 camera  = CameraManager()
+global_camera = camera
 motors  = MotorController()
+
 
 # Try to connect to Arduino (won't crash if not present)
 arduino = None
@@ -69,11 +71,13 @@ def autonomous_loop():
     Pauses actuation when PC switches to manual mode."""
     print("[Auto] Autonomous loop started")
     motors.forward()
+    last_save_time = 0
 
     while state['running']:
         if state['mode'] != 'autonomous':
             time.sleep(0.1)
             continue
+        time.sleep(0.1)
 
         # ── Wall avoidance from Arduino ────────────────────────────────────────
         if arduino and arduino.in_waiting:
@@ -99,22 +103,24 @@ def autonomous_loop():
         # Replace the block below with your real sensor reading logic.
         # This stub shows the expected structure.
         try:
-            sensor = read_sensors()   # <-- implement this for your hardware
-            if sensor:
-                severity   = determine_severity(sensor['moisture'])
-                image_path = None
-                if sensor['moisture'] > 60:
-                    image_path = camera.capture_image(
-                        sensor['gps_lat'], sensor['gps_lng'], sensor['moisture']
-                    )
-                storage.add_moisture_reading(
-                    gps_lat    = sensor['gps_lat'],
-                    gps_lng    = sensor['gps_lng'],
-                    moisture   = sensor['moisture'],
-                    ir_temp    = sensor.get('ir_temp'),
-                    image_path = image_path,
-                    severity   = severity,
-                )
+            current_time = time.time()
+            if current_time - last_save_time > 5.0:  # Only save every 5 seconds
+                sensor = read_sensors()   # <-- implement this for your hardware
+                if sensor:
+                    severity   = determine_severity(sensor['moisture'])
+                    image_path = None
+                    if sensor['moisture'] > 60:
+                        image_path = camera.capture_image(
+                            sensor['gps_lat'], sensor['gps_lng'], sensor['moisture']
+                        )
+                   # storage.add_moisture_reading(
+                     #   gps_lat    = sensor['gps_lat'],
+                     #   gps_lng    = sensor['gps_lng'],
+                     #   moisture   = sensor['moisture'],
+                       # ir_temp    = sensor.get('ir_temp'),
+                      #  image_path = image_path,
+                      #  severity   = severity,
+                  #  )
                 if severity == 'Critical':
                     motors.stop()
                     time.sleep(2)
@@ -133,7 +139,8 @@ def read_sensors():
       {'gps_lat': -37.81, 'gps_lng': 144.96, 'moisture': 45.0, 'ir_temp': 22.1}
     or None if no data is ready.
     """
-    raise NotImplementedError
+    return{'gps_lat': -37.81,'gps_lng':12,'moisture':52.2,'ir_temp':22.1}
+ 
 
 # Start autonomous loop immediately — PC connection is irrelevant
 threading.Thread(target=autonomous_loop, daemon=True, name="Autonomous").start()

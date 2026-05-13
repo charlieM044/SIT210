@@ -7,7 +7,7 @@ from datetime import datetime
 
 import pi_server
 from saveData import LocalDataManager
-from camera import CameraManager, IRCamera
+from camera import CameraManager
 from pi_server import app as flask_app
 
 class RobotMain:
@@ -20,7 +20,7 @@ class RobotMain:
         self.client = None
         self.storage = LocalDataManager('./robot_inspection_data')
         self.camera = CameraManager()
-        self.ir_camera = IRCamera()
+        
         
         self.running = True
         self.threads = []
@@ -29,7 +29,7 @@ class RobotMain:
         """Start Flask web server"""
         print("[Flask] Starting web server on port 5000...")
         try:
-            flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+            flask_app.run(host='0.0.0.0', port=5000, debug=False, threaded = True ,use_reloader=False)
         except Exception as e:
             print(f"[Flask] Error: {e}")
 
@@ -59,57 +59,19 @@ class RobotMain:
                 print(f"[Monitor] Error: {e}")
     
     def start_all(self):
-        """Start all components in separate threads"""
-        print("\n[Main] Starting all components...\n")
-        
-        self.camera.start_streaming()
-        import pi_server
-        pi_server.global_camera = self.camera  # Make camera accessible to Flask routes
-        
-        # Flask server thread
-        flask_thread = threading.Thread(
-            target=self.start_flask_server,
-            daemon=False,
-            name="Flask-Server"
-        )
-        flask_thread.start()
-        self.threads.append(flask_thread)
-        time.sleep(2)  # Wait for Flask to start
-        
-        # Sensor client thread
-        client_thread = threading.Thread(
-            target=self.start_client,
-            daemon=True,
-            name="Sensor-Client"
-        )
-        client_thread.start()
-        self.threads.append(client_thread)
-        print("[Main] ✓ Sensor client started\n")
-        
-        # Monitoring thread
-        monitor_thread = threading.Thread(
-            target=self.start_monitoring,
-            daemon=True,
-            name="System-Monitor"
-        )
-        monitor_thread.start()
-        self.threads.append(monitor_thread)
-        print("[Main] ✓ System monitor started\n")
-        
-        print("=" * 50)
-        print("✓ Robot system fully operational!")
-        print("=" * 50)
-        print("\nAccess the web interface at:")
-        print("  http://raspberrypi.local:5000")
-        print("\nPress Ctrl+C to shutdown\n")
-        
-        # Keep main thread alive
-        try:
+            # 1. Start the Camera (Internal thread)
+            self.camera.start_streaming()
+            
+            # 2. Start Flask in a thread
+            flask_thread = threading.Thread(target=self.start_flask_server, daemon=True)
+            flask_thread.start()
+            
+            # 3. RUN EVERYTHING ELSE IN THE MAIN THREAD (No more extra threads)
+            print("[Main] Logic loop starting...")
             while self.running:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("\n[Main] Shutdown signal received...")
-            self.shutdown()
+                self.run_autonomous_logic() # Motors + Moisture check
+                self.update_monitoring()    # System health
+                time.sleep(0.5)             # CRITICAL: This gives the Pi time to breathe
     
     def shutdown(self):
         """Graceful shutdown"""
@@ -136,6 +98,8 @@ class RobotMain:
 
 def main():
     """Main entry point"""
+    
+    
     robot = RobotMain()
     robot.start_all()
 
