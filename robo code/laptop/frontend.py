@@ -1,215 +1,154 @@
-from flask import Flask, render_template, jsonify, request, Response
+from flask import Flask, render_template, jsonify, request, Response, stream_with_context
 from flask_cors import CORS
 import requests
+import time
 import logging
-import sys
-import os
 
 app = Flask(__name__)
 CORS(app)
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
-# ===== CONFIGURATION =====
-# Update this to match your Raspberry Pi's IP address or hostname
-# Options:
-#   - 'http://raspberrypi.local:5000'  (mDNS name - works on Mac/Linux, may not work on Windows)
-#   - 'http://192.168.1.XXX:5000'      (IP address - replace with your Pi's IP)
-#   - 'http://192.168.0.XXX:5000'      (if on different subnet)
+# ── Config ─────────────────────────────────────────────────────────────────────
+# Pi always has this IP when hosting its own hotspot
+PI_SERVER = 'http://192.168.4.1:5000'
 
-PI_SERVER = 'http://raspberrypi.local:5000'
+# ── Connection check (cached 5 s to avoid hammering the Pi) ───────────────────
+_last_check  = 0
+_connected   = False
 
-# Test connection on startup
-logger.info(f"Frontend configured to connect to: {PI_SERVER}")
-
-# ===== HEALTH CHECK =====
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Check connection to Pi server"""
+def is_connected():
+    global _last_check, _connected
+    if time.time() - _last_check < 5:
+        return _connected
     try:
-        response = requests.get(f'{PI_SERVER}/api/readings', timeout=2)
-        logger.info("✓ Connected to Pi server")
-        return jsonify({'status': 'connected', 'server': PI_SERVER}), 200
-    except requests.exceptions.ConnectionError as e:
-        logger.error(f"✗ Cannot connect to Pi: {e}")
-        return jsonify({'status': 'disconnected', 'error': f'Cannot reach {PI_SERVER}', 'server': PI_SERVER}), 503
-    except Exception as e:
-        logger.error(f"✗ Health check failed: {e}")
-        return jsonify({'status': 'error', 'error': str(e), 'server': PI_SERVER}), 500
+        r = requests.get(f'{PI_SERVER}/api/stats', timeout=2)
+        _connected = r.status_code == 200
+    except Exception:
+        _connected = False
+    _last_check = time.time()
+    return _connected
 
-# ===== DATA ENDPOINTS =====
-@app.route('/api/readings', methods=['GET'])
-def get_readings():
+# ── Status ─────────────────────────────────────────────────────────────────────
+@app.route('/api/status')
+def status():
+    connected = is_connected()
+    return jsonify({
+        'connected': connected,
+        'pi_url':    PI_SERVER,
+        'message':   'Connected to Pi ✓' if connected else 'Pi not reachable ✗',
+    })
+
+# ── Data endpoints ─────────────────────────────────────────────────────────────
+@app.route('/api/readings')
+def readings():
+    since = request.args.get('since', 0)
     try:
-        response = requests.get(f'{PI_SERVER}/api/readings', timeout=5)
-        response.raise_for_status()
-        logger.debug(f"Readings: {response.json()}")
-        return jsonify(response.json()), 200
-    except requests.exceptions.ConnectionError:
-        logger.error(f"Cannot connect to {PI_SERVER}")
-        return jsonify({"error": f"Cannot connect to {PI_SERVER}", "data": []}), 503
+        r = requests.get(f'{PI_SERVER}/api/readings?since={since}', timeout=5)
+        return jsonify(r.json()), r.status_code
     except Exception as e:
-        logger.error(f"Error fetching readings: {e}")
-        return jsonify({"error": str(e), "data": []}), 500
+        log.error(f"readings: {e}")
+        return jsonify([]), 503
 
-@app.route('/api/stats', methods=['GET'])
-def get_stats():
+@app.route('/api/stats')
+def stats():
     try:
-        response = requests.get(f'{PI_SERVER}/api/stats', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
-    except requests.exceptions.ConnectionError:
-        logger.error(f"Cannot connect to {PI_SERVER}")
-        return jsonify({"error": f"Cannot connect to {PI_SERVER}"}), 503
+        r = requests.get(f'{PI_SERVER}/api/stats', timeout=5)
+        return jsonify(r.json()), r.status_code
     except Exception as e:
-        logger.error(f"Error fetching stats: {e}")
-        return jsonify({"error": str(e)}), 500
+        log.error(f"stats: {e}")
+        return jsonify({}), 503
 
-@app.route('/api/critical', methods=['GET'])
-def get_critical():
+@app.route('/api/critical')
+def critical():
     try:
-        response = requests.get(f'{PI_SERVER}/api/critical', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
-    except requests.exceptions.ConnectionError:
-        logger.error(f"Cannot connect to {PI_SERVER}")
-        return jsonify({"error": f"Cannot connect to {PI_SERVER}", "data": []}), 503
+        r = requests.get(f'{PI_SERVER}/api/critical', timeout=5)
+        return jsonify(r.json()), r.status_code
     except Exception as e:
-        logger.error(f"Error fetching critical: {e}")
-        return jsonify({"error": str(e), "data": []}), 500
+        log.error(f"critical: {e}")
+        return jsonify([]), 503
 
-@app.route('/api/storage', methods=['GET'])
-def get_storage():
+@app.route('/api/storage')
+def storage():
     try:
-        response = requests.get(f'{PI_SERVER}/api/storage', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
-    except requests.exceptions.ConnectionError:
-        logger.error(f"Cannot connect to {PI_SERVER}")
-        return jsonify({"error": f"Cannot connect to {PI_SERVER}"}), 503
+        r = requests.get(f'{PI_SERVER}/api/storage', timeout=5)
+        return jsonify(r.json()), r.status_code
     except Exception as e:
-        logger.error(f"Error fetching storage: {e}")
-        return jsonify({"error": str(e)}), 500
+        log.error(f"storage: {e}")
+        return jsonify({}), 503
 
-# ===== CONTROL ENDPOINTS =====
-@app.route('/api/control/start', methods=['POST'])
-def control_start():
+# ── Mode switching ─────────────────────────────────────────────────────────────
+@app.route('/api/mode')
+def get_mode():
     try:
-        response = requests.post(f'{PI_SERVER}/api/control/start', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
+        r = requests.get(f'{PI_SERVER}/api/mode', timeout=2)
+        return jsonify(r.json()), r.status_code
     except Exception as e:
-        logger.error(f"Control error: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
+        return jsonify({'mode': 'unknown', 'error': str(e)}), 503
 
-@app.route('/api/control/stop', methods=['POST'])
-def control_stop():
+@app.route('/api/mode/<mode>', methods=['POST'])
+def set_mode(mode):
+    if mode not in ('manual', 'autonomous'):
+        return jsonify({'error': 'invalid mode'}), 400
     try:
-        response = requests.post(f'{PI_SERVER}/api/control/stop', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
+        r = requests.post(f'{PI_SERVER}/api/mode/{mode}', timeout=2)
+        return jsonify(r.json()), r.status_code
     except Exception as e:
-        logger.error(f"Control error: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
+        return jsonify({'error': str(e)}), 503
 
-@app.route('/api/control/forward', methods=['POST'])
-def control_forward():
+# ── Motor control (Pi will ignore if not in manual mode) ──────────────────────
+@app.route('/api/control/<command>', methods=['POST'])
+def control(command):
+    valid = {'forward', 'backward', 'left', 'right', 'stop', 'stop-motors'}
+    if command not in valid:
+        return jsonify({'error': 'unknown command'}), 400
     try:
-        response = requests.post(f'{PI_SERVER}/api/control/forward', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
+        r = requests.post(f'{PI_SERVER}/api/control/{command}', timeout=2)
+        return jsonify(r.json()), r.status_code
     except Exception as e:
-        logger.error(f"Control error: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
+        log.error(f"control/{command}: {e}")
+        return jsonify({'error': str(e)}), 503
 
-@app.route('/api/control/backward', methods=['POST'])
-def control_backward():
+# ── Video stream ───────────────────────────────────────────────────────────────
+@app.route('/api/stream/<action>', methods=['POST'])
+def stream_control(action):
     try:
-        response = requests.post(f'{PI_SERVER}/api/control/backward', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
+        r = requests.post(f'{PI_SERVER}/api/stream/{action}', timeout=2)
+        return jsonify(r.json()), r.status_code
     except Exception as e:
-        logger.error(f"Control error: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
+        return jsonify({'error': str(e)}), 503
 
-@app.route('/api/control/left', methods=['POST'])
-def control_left():
-    try:
-        response = requests.post(f'{PI_SERVER}/api/control/left', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
-    except Exception as e:
-        logger.error(f"Control error: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
-
-@app.route('/api/control/right', methods=['POST'])
-def control_right():
-    try:
-        response = requests.post(f'{PI_SERVER}/api/control/right', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
-    except Exception as e:
-        logger.error(f"Control error: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
-
-@app.route('/api/control/stop-motors', methods=['POST'])
-def control_stop_motors():
-    try:
-        response = requests.post(f'{PI_SERVER}/api/control/stop-motors', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
-    except Exception as e:
-        logger.error(f"Control error: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
-
-@app.route('/api/commands', methods=['GET'])
-def get_commands():
-    try:
-        response = requests.get(f'{PI_SERVER}/api/commands', timeout=5)
-        response.raise_for_status()
-        return jsonify(response.json()), 200
-    except requests.exceptions.ConnectionError:
-        logger.error(f"Cannot connect to {PI_SERVER}")
-        return jsonify({"error": f"Cannot connect to {PI_SERVER}", "data": []}), 503
-    except Exception as e:
-        logger.error(f"Error fetching commands: {e}")
-        return jsonify({"error": str(e), "data": []}), 500
-
-# ===== VIDEO STREAMING =====
 @app.route('/video_feed')
 def video_feed():
+    """Proxy the MJPEG stream from the Pi."""
     try:
-        response = requests.get(f'{PI_SERVER}/video_feed', stream=True, timeout=30)
-        return Response(response.iter_content(chunk_size=1024), mimetype='video/mp4')
+        r = requests.get(f'{PI_SERVER}/video_feed', stream=True, timeout=10)
+        return Response(
+            stream_with_context(r.iter_content(chunk_size=4096)),
+            content_type=r.headers.get('content-type',
+                         'multipart/x-mixed-replace; boundary=frame'),
+        )
     except Exception as e:
-        logger.error(f"Video feed error: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
+        log.error(f"video_feed: {e}")
+        return jsonify({'error': str(e)}), 503
 
-# ===== HTML ROUTES =====
+# ── HTML pages ─────────────────────────────────────────────────────────────────
 @app.route('/')
-def index():
-    return render_template('index.html')
+def index():    return render_template('index.html')
 
 @app.route('/map')
-def map_view():
-    return render_template('map.html')
+def map_view(): return render_template('map.html')
 
 @app.route('/report')
-def report_view():
-    return render_template('report.html')
+def report():   return render_template('report.html')
 
 @app.route('/control')
-def control_view():
-    return render_template('control.html')
+def control_view(): return render_template('control.html')
 
 if __name__ == '__main__':
-    print("\n" + "="*60)
-    print("🖥️  FRONTEND SERVER (Windows)")
-    print("="*60)
-    print(f"Connecting to Pi backend: {PI_SERVER}")
-    print("Running on: http://localhost:8000")
-    print("="*60 + "\n")
-    
+    print("\n" + "=" * 55)
+    print("🖥️  Frontend — connecting to Pi at:", PI_SERVER)
+    print("   Open http://localhost:8000 in your browser")
+    print("=" * 55 + "\n")
     app.run(host='0.0.0.0', port=8000, debug=True)

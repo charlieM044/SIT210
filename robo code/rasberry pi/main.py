@@ -3,145 +3,91 @@ import time
 import sys
 from datetime import datetime
 
-# Import all modules
-from client import RobotClient
 from saveData import LocalDataManager
 from camera import CameraManager, IRCamera
 from pi_server import app as flask_app
 
 class RobotMain:
     def __init__(self):
-        """Initialize all robot components"""
         print("=" * 50)
         print("🤖 Moisture Detection Robot - Starting up")
         print("=" * 50)
-        
-        self.client = None
-        self.storage = LocalDataManager('./robot_inspection_data')
-        self.camera = CameraManager()
-        self.ir_camera = IRCamera()
-        
-        self.running = True
-        self.threads = []
-    
+
+        # These are already initialised inside pi_server.py,
+        # but we keep references here for the shutdown/monitor thread.
+        self.storage  = LocalDataManager('./robot_inspection_data')
+        self.running  = True
+        self.threads  = []
+
     def start_flask_server(self):
-        """Start Flask web server"""
-        print("[Flask] Starting web server on port 5000...")
+        print("[Flask] Starting on port 5000...")
         try:
-            flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+            flask_app.run(host='0.0.0.0', port=5000,
+                          debug=False, use_reloader=False)
         except Exception as e:
             print(f"[Flask] Error: {e}")
-    
-    def start_client(self):
-        """Start sensor client"""
-        print("[Client] Starting sensor client...")
-        try:
-            self.client = RobotClient('http://localhost:5000')
-            self.client.run()
-        except Exception as e:
-            print(f"[Client] Error: {e}")
-    
+
     def start_monitoring(self):
-        """Monitor system health and log data"""
-        print("[Monitor] Starting system monitoring...")
+        print("[Monitor] System monitor started")
         while self.running:
             try:
-                # Log system status every 30 seconds
                 time.sleep(30)
-                
-                # Get storage info
-                info = self.storage.get_storage_info()
+                info  = self.storage.get_storage_info()
                 stats = self.storage.get_moisture_stats()
-                
-                print(f"\n[Monitor] System Status - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                print(f"  Files: {info['total_files']}")
-                print(f"  Storage: {info['total_size_mb']} MB")
-                print(f"  Images: {info['images']}")
-                
+                print(f"\n[Monitor] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"  Files:   {info['total_files']}  |  "
+                      f"Storage: {info['total_size_mb']} MB  |  "
+                      f"Images: {info['images']}")
                 if stats:
-                    print(f"  Readings: {stats['count']}")
-                    print(f"  Avg Moisture: {stats['average']:.1f}%")
-                    print(f"  Critical Areas: {stats['critical_count']}")
-                
+                    print(f"  Readings: {stats['count']}  |  "
+                          f"Avg moisture: {stats['average']:.1f}%  |  "
+                          f"Critical: {stats['critical_count']}")
             except Exception as e:
                 print(f"[Monitor] Error: {e}")
-    
+
     def start_all(self):
-        """Start all components in separate threads"""
-        print("\n[Main] Starting all components...\n")
-        
-        # Flask server thread
+        print("\n[Main] Starting components...\n")
+
+        # Flask in a non-daemon thread so it keeps the process alive
         flask_thread = threading.Thread(
             target=self.start_flask_server,
-            daemon=False,
-            name="Flask-Server"
+            daemon=False, name="Flask-Server"
         )
         flask_thread.start()
         self.threads.append(flask_thread)
-        time.sleep(2)  # Wait for Flask to start
-        
-        # Sensor client thread
-        client_thread = threading.Thread(
-            target=self.start_client,
-            daemon=True,
-            name="Sensor-Client"
-        )
-        client_thread.start()
-        self.threads.append(client_thread)
-        print("[Main] ✓ Sensor client started\n")
-        
+        time.sleep(2)   # give Flask a moment to bind
+        print("[Main] ✓ Flask server running\n")
+
         # Monitoring thread
         monitor_thread = threading.Thread(
             target=self.start_monitoring,
-            daemon=True,
-            name="System-Monitor"
+            daemon=True, name="System-Monitor"
         )
         monitor_thread.start()
         self.threads.append(monitor_thread)
-        print("[Main] ✓ System monitor started\n")
-        
+        print("[Main] ✓ System monitor running\n")
+
         print("=" * 50)
         print("✓ Robot system fully operational!")
-        print("=" * 50)
-        print("\nAccess the web interface at:")
-        print("  http://raspberrypi.local:5000")
-        print("\nPress Ctrl+C to shutdown\n")
-        
-        # Keep main thread alive
+        print("  Web interface : http://192.168.4.1:5000")
+        print("  Press Ctrl+C to shutdown")
+        print("=" * 50 + "\n")
+
         try:
             while self.running:
                 time.sleep(1)
         except KeyboardInterrupt:
             print("\n[Main] Shutdown signal received...")
             self.shutdown()
-    
+
     def shutdown(self):
-        """Graceful shutdown"""
-        print("[Main] Shutting down all components...")
-        
+        print("[Main] Shutting down...")
         self.running = False
-        
-        # Release camera
-        try:
-            self.camera.release()
-            print("[Main] ✓ Camera released")
-        except:
-            pass
-        
-        # Wait for threads
-        print("[Main] Waiting for threads to finish...")
-        for thread in self.threads:
-            if thread.is_alive():
-                thread.join(timeout=3)
-        
-        print("[Main] ✓ All components stopped")
-        print("[Main] Robot system shutdown complete")
+        for t in self.threads:
+            if t.is_alive():
+                t.join(timeout=3)
+        print("[Main] Shutdown complete")
         sys.exit(0)
 
-def main():
-    """Main entry point"""
-    robot = RobotMain()
-    robot.start_all()
-
 if __name__ == "__main__":
-    main()
+    RobotMain().start_all()

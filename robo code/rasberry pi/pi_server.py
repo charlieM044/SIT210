@@ -1,135 +1,232 @@
-from flask import Flask, render_template, jsonify, request, Response
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
-
-
-
 from saveData import LocalDataManager
-from camera import CameraManager, IRCamera
+from camera import CameraManager
+from motorcontroller import MotorController
 from datetime import datetime
-import json
+import threading
+import serial
+import time
+import platform
 
 app = Flask(__name__)
-CORS(app)  
+CORS(app)
+
+# ── Hardware init ──────────────────────────────────────────────────────────────
 storage = LocalDataManager('./robot_inspection_data')
-camera = CameraManager()
-ir_camera = IRCamera()
+camera  = CameraManager()
+motors  = MotorController()
 
-# Store control state
-control_active = False
-pending_commands = []
+# Try to connect to Arduino (won't crash if not present)
+arduino = None
+SERIAL_PORT = '/dev/ttyACM0' if platform.machine() in ('armv7l', 'aarch64') else 'COM6'
+try:
+    arduino = serial.Serial(SERIAL_PORT, 9600, timeout=1)
+    time.sleep(2)
+    print(f"[Pi] ✓ Arduino connected on {SERIAL_PORT}")
+except Exception as e:
+    print(f"[Pi] ⚠ Arduino not connected ({e}) — running without wall avoidance")
 
-# API: Receive sensor data from Arduino
-@app.route('/api/sensor-data', methods=['POST'])
-def receive_sensor_data():
-    """Receive sensor data from Arduino/sensors"""
-    data = request.json
-    
-    # If moisture is high, capture image
-    image_path = None
-    if data['moisture'] > 60:
-        image_path = camera.capture_image(
-            data['gps_lat'],
-            data['gps_lng'],
-            data['moisture']
-        )
-    
-    # Save to local database
-    storage.add_moisture_reading(
-        gps_lat=data['gps_lat'],
-        gps_lng=data['gps_lng'],
-        moisture=data['moisture'],
-        ir_temp=data.get('ir_temp'),
-        image_path=image_path,
-        severity=data.get('severity', 'Minor')
-    )
-    
-    print(f"Sensor data received: {data}")
-    return jsonify({'status': 'received'}), 200
+# ── Robot state ────────────────────────────────────────────────────────────────
+state = {
+    'mode':      'autonomous',   # 'autonomous' | 'manual'
+    'running':   True,
+    'streaming': False,
+}
 
-# API: Get all readings
+# ── Helpers ────────────────────────────────────────────────────────────────────
+def parse_arduino(line):
+    """Parse 'WALL:remaining,angle,amount' or 'SAFE' from Arduino."""
+    if line == 'SAFE':
+        return {'type': 'safe'}
+    if line.startswith('WALL:'):
+        try:
+            parts = line.replace('WALL:', '').split(',')
+            return {
+                'type':      'wall',
+                'remaining': float(parts[0]),
+                'angle':     float(parts[1]),
+                'amount':    float(parts[2]),
+            }
+        except Exception:
+            pass
+    return None
+
+def determine_severity(moisture):
+    if moisture > 80:
+        return 'Critical'
+    if moisture > 60:
+        return 'Moderate'
+    return 'Minor'
+
+# ── Autonomous loop ────────────────────────────────────────────────────────────
+def autonomous_loop():
+    """Runs forever in a background thread.
+    Reads Arduino wall data and sensor data, saves locally, drives the robot.
+    Pauses actuation when PC switches to manual mode."""
+    print("[Auto] Autonomous loop started")
+    motors.forward()
+
+    while state['running']:
+        if state['mode'] != 'autonomous':
+            time.sleep(0.1)
+            continue
+
+        # ── Wall avoidance from Arduino ────────────────────────────────────────
+        if arduino and arduino.in_waiting:
+            try:
+                raw = arduino.readline().decode('utf-8').strip()
+                parsed = parse_arduino(raw)
+                if parsed:
+                    if parsed['type'] == 'wall':
+                        remaining = parsed['remaining']
+                        if remaining > 5:
+                            if remaining > 0:
+                                motors.turn_left_angle(remaining)
+                            else:
+                                motors.turn_right_angle(abs(remaining))
+                        else:
+                            motors.forward()
+                    elif parsed['type'] == 'safe':
+                        motors.forward()
+            except Exception as e:
+                print(f"[Auto] Arduino read error: {e}")
+
+        # ── Sensor data collection ─────────────────────────────────────────────
+        # Replace the block below with your real sensor reading logic.
+        # This stub shows the expected structure.
+        try:
+            sensor = read_sensors()   # <-- implement this for your hardware
+            if sensor:
+                severity   = determine_severity(sensor['moisture'])
+                image_path = None
+                if sensor['moisture'] > 60:
+                    image_path = camera.capture_image(
+                        sensor['gps_lat'], sensor['gps_lng'], sensor['moisture']
+                    )
+                storage.add_moisture_reading(
+                    gps_lat    = sensor['gps_lat'],
+                    gps_lng    = sensor['gps_lng'],
+                    moisture   = sensor['moisture'],
+                    ir_temp    = sensor.get('ir_temp'),
+                    image_path = image_path,
+                    severity   = severity,
+                )
+                if severity == 'Critical':
+                    motors.stop()
+                    time.sleep(2)
+                    motors.forward()
+        except NotImplementedError:
+            pass   # Sensor stub not yet wired up
+        except Exception as e:
+            print(f"[Auto] Sensor error: {e}")
+
+        time.sleep(0.1)
+
+def read_sensors():
+    """
+    STUB — replace with your actual sensor reading code.
+    Should return a dict like:
+      {'gps_lat': -37.81, 'gps_lng': 144.96, 'moisture': 45.0, 'ir_temp': 22.1}
+    or None if no data is ready.
+    """
+    raise NotImplementedError
+
+# Start autonomous loop immediately — PC connection is irrelevant
+threading.Thread(target=autonomous_loop, daemon=True, name="Autonomous").start()
+
+# ── Mode endpoints ─────────────────────────────────────────────────────────────
+@app.route('/api/mode', methods=['GET'])
+def get_mode():
+    return jsonify({'mode': state['mode']})
+
+@app.route('/api/mode/manual', methods=['POST'])
+def set_manual():
+    state['mode'] = 'manual'
+    motors.stop()
+    print("[Pi] → MANUAL mode")
+    return jsonify({'mode': 'manual'})
+
+@app.route('/api/mode/autonomous', methods=['POST'])
+def set_autonomous():
+    state['mode'] = 'autonomous'
+    motors.forward()
+    print("[Pi] → AUTONOMOUS mode")
+    return jsonify({'mode': 'autonomous'})
+
+# ── Manual motor control (only acts in manual mode) ────────────────────────────
+@app.route('/api/control/forward',    methods=['POST'])
+def ctrl_forward():
+    if state['mode'] == 'manual': motors.forward()
+    return jsonify({'mode': state['mode']})
+
+@app.route('/api/control/backward',   methods=['POST'])
+def ctrl_backward():
+    if state['mode'] == 'manual': motors.backward()
+    return jsonify({'mode': state['mode']})
+
+@app.route('/api/control/left',       methods=['POST'])
+def ctrl_left():
+    if state['mode'] == 'manual': motors.left()
+    return jsonify({'mode': state['mode']})
+
+@app.route('/api/control/right',      methods=['POST'])
+def ctrl_right():
+    if state['mode'] == 'manual': motors.right()
+    return jsonify({'mode': state['mode']})
+
+@app.route('/api/control/stop',       methods=['POST'])
+@app.route('/api/control/stop-motors',methods=['POST'])
+def ctrl_stop():
+    if state['mode'] == 'manual': motors.stop()
+    return jsonify({'mode': state['mode']})
+
+# ── Data endpoints ─────────────────────────────────────────────────────────────
 @app.route('/api/readings', methods=['GET'])
 def get_readings():
+    since    = request.args.get('since', 0, type=float)
     readings = storage.get_all_readings()
+    if since:
+        readings = [r for r in readings if r['timestamp'] > since]
     return jsonify(readings)
 
-# API: Get statistics
-@app.route('/api/stats', methods=['GET'])
+@app.route('/api/stats',    methods=['GET'])
 def get_stats():
-    stats = storage.get_moisture_stats()
-    return jsonify(stats)
+    return jsonify(storage.get_moisture_stats())
 
-# API: Get critical readings
 @app.route('/api/critical', methods=['GET'])
 def get_critical():
-    readings = storage.get_all_readings()
-    critical = [r for r in readings if r['severity'] == 'Critical']
-    return jsonify(critical)
+    return jsonify([r for r in storage.get_all_readings() if r['severity'] == 'Critical'])
 
-# API: Storage info
-@app.route('/api/storage', methods=['GET'])
+@app.route('/api/storage',  methods=['GET'])
 def get_storage():
-    info = storage.get_storage_info()
-    return jsonify(info)
+    return jsonify(storage.get_storage_info())
 
-# Control API: Start streaming and control
-@app.route('/api/control/start', methods=['POST'])
-def control_start():
-    global control_active
-    control_active = True
+# ── Video stream ───────────────────────────────────────────────────────────────
+@app.route('/api/stream/start', methods=['POST'])
+def stream_start():
+    state['streaming'] = True
     camera.start_streaming()
-    return jsonify({'status': 'control active'}), 200
+    return jsonify({'streaming': True})
 
-@app.route('/api/control/stop', methods=['POST'])
-def control_stop():
-    global control_active
-    control_active = False
+@app.route('/api/stream/stop', methods=['POST'])
+def stream_stop():
+    state['streaming'] = False
     camera.stop_streaming()
-    return jsonify({'status': 'control stopped'}), 200
+    return jsonify({'streaming': False})
 
-# Motor commands
-@app.route('/api/commands', methods=['GET'])
-def get_commands():
-    global pending_commands
-    commands = pending_commands.copy()
-    pending_commands = []
-    return jsonify(commands), 200
-
-@app.route('/api/control/forward', methods=['POST'])
-def control_forward():
-    pending_commands.append('forward')
-    return jsonify({'status': 'command sent'}), 200
-
-@app.route('/api/control/backward', methods=['POST'])
-def control_backward():
-    pending_commands.append('backward')
-    return jsonify({'status': 'command sent'}), 200
-
-@app.route('/api/control/left', methods=['POST'])
-def control_left():
-    pending_commands.append('left')
-    return jsonify({'status': 'command sent'}), 200
-
-@app.route('/api/control/right', methods=['POST'])
-def control_right():
-    pending_commands.append('right')
-    return jsonify({'status': 'command sent'}), 200
-
-@app.route('/api/control/stop-motors', methods=['POST'])
-def control_stop_motors():
-    pending_commands.append('stop')
-    return jsonify({'status': 'command sent'}), 200
-
-# Video streaming
 @app.route('/video_feed')
 def video_feed():
     def generate():
-        while control_active:
+        while state['streaming']:
             frame = camera.get_frame()
-            if frame is not None:
+            if frame:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-    
-    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+            else:
+                time.sleep(0.033)
+    return Response(generate(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
