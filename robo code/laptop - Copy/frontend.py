@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 # ── Config ─────────────────────────────────────────────────────────────────────
-# Pi always has this IP when hosting its own hotspot
+# Pi server ip hosted on mobile hotspot (change if needed)b
 PI_SERVER = 'http://10.222.154.118:5000'
 
 # ── Connection check (cached 5 s to avoid hammering the Pi) ───────────────────

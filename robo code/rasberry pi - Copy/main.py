@@ -76,6 +76,14 @@ class RobotMain:
         )
         flask_thread.start()
 
+        # 2.5 Ensure motors start moving when in autonomous mode
+        try:
+            if state.get('mode') == 'autonomous':
+                motors.forward()
+                print("[Main] motors started (autonomous mode)")
+        except Exception as e:
+            print(f"[Main] could not start motors: {e}")
+
         # 3. Main thread: heartbeat + periodic status log
         print("[Main] running  (Ctrl-C to stop)")
         last_log = 0

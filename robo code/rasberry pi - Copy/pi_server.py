@@ -189,9 +189,14 @@ def set_autonomous():
 
 # ── Manual motor control ───────────────────────────────────────────────────────
 def _manual_only(fn):
-    if state['mode'] == 'manual':
+    if state['mode'] != 'manual':
+        return jsonify({'error': 'not in manual mode', 'mode': state['mode']}), 403
+    try:
         fn()
-    return jsonify({'mode': state['mode']})
+        return jsonify({'mode': state['mode']})
+    except Exception as e:
+        print(f"[Pi] Manual control error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/control/forward',    methods=['POST'])
 def ctrl_forward():   return _manual_only(motors.forward)

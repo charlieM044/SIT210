@@ -111,21 +111,23 @@ class MotorController:
 
     def turn_left_angle(self, angle):
         """Gradual left curve proportional to angle (from Arduino)."""
+        base_speed = self.current_speed if self.current_speed != 0 else 60
         reduction = min(abs(angle) / 90.0 * self.max_speed, self.max_speed)
-        self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1,
-                        self.current_speed)
+        self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1, base_speed)
         self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2,
-                        max(self.current_speed - reduction, 0))
-        print(f"[Motors] auto-turn left {angle}°")
+                        max(base_speed - reduction, 0))
+        self.current_speed = base_speed
+        print(f"[Motors] auto-turn left {angle}° (base {base_speed}%)")
 
     def turn_right_angle(self, angle):
         """Gradual right curve proportional to angle (from Arduino)."""
+        base_speed = self.current_speed if self.current_speed != 0 else 60
         reduction = min(abs(angle) / 90.0 * self.max_speed, self.max_speed)
         self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1,
-                        max(self.current_speed - reduction, 0))
-        self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2,
-                        self.current_speed)
-        print(f"[Motors] auto-turn right {angle}°")
+                        max(base_speed - reduction, 0))
+        self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2, base_speed)
+        self.current_speed = base_speed
+        print(f"[Motors] auto-turn right {angle}° (base {base_speed}%)")
 
     def stop(self):
         """Actively brake both motors."""
