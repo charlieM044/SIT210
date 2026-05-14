@@ -18,19 +18,28 @@ class CameraManager:
         self.stream_thread = None
         
         try:
-            # Try newer picamera2 first (Raspberry Pi OS Bullseye+)
+            import subprocess
+            # Force release video0 if stuck
+            subprocess.run(["sudo", "fuser", "-k", "/dev/video0"], stderr=subprocess.DEVNULL)
             from picamera2 import Picamera2
-            self.picamera2 = Picamera2()
-            self.use_picamera2 = True
-            
-            # Configure camera
-            config = self.picamera2.create_preview_configuration()
+            # Create the instance first
+            # Replace your current config block with this:
+            config = self.picamera2.create_video_configuration() # Use video, not preview
+            config.main.size = (640, 480)
+            config.main.format = 'BGR888' 
+            # Explicitly remove the second stream if it exists
+            if len(config.outputs) > 1:
+                config.outputs.pop(1) 
+
             self.picamera2.configure(config)
             self.picamera2.start()
-            
             print("[Camera] ✓ Using picamera2 (OV5647)")
+            
+        except Exception as e:
+            print(f"[Camera] Picamera2 failed: {e}")
+            self.use_picamera2 = False
         
-        except ImportError:
+       
             try:
                 # Fallback to older picamera
                 from picamera import PiCamera
@@ -142,10 +151,13 @@ class CameraManager:
                                (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                     
                     # Encode frame to JPEG
+             
+            
+                    self.frame = None # Explicitly drop the old reference
                     ret, buffer = cv2.imencode('.jpg', frame)
                     self.frame = buffer.tobytes()
                 
-                time.sleep(0.033)  # ~30 FPS
+                time.sleep(0.1)  # ~30 FPS
             
             except Exception as e:
                 print(f"[Camera] Streaming error: {e}")
@@ -211,65 +223,24 @@ class CameraManager:
             print(f"[Camera] Brightness adjusted to {brightness_value}")
         except Exception as e:
             print(f"[Camera] Error adjusting brightness: {e}")
-    
+        
     def release(self):
-        """Release camera"""
-        self.stop_streaming()
-        
-        try:
-            if self.use_picamera2:
-                self.picamera2.stop()
-            else:
-                if self.camera:
+            """Comprehensive release of all camera resources"""
+            self.is_streaming = False
+            if self.stream_thread and self.stream_thread.is_alive():
+                self.stream_thread.join(timeout=1)
+            
+            try:
+                if self.use_picamera2 and hasattr(self, 'picamera2'):
+                    self.picamera2.stop()
+                    self.picamera2.close() # Important: close() releases the file descriptor
+                elif self.camera:
                     self.camera.release()
-            
-            print("[Camera] ✓ Camera released")
-        except Exception as e:
-            print(f"[Camera] Error releasing: {e}")
+                
+                print("[Camera] ✓ Hardware successfully released")
+            except Exception as e:
+                print(f"[Camera] Release error: {e}")
 
-class IRCamera:
-    """Handle IR thermal readings from OV5647 with IR-CUT"""
-    def __init__(self):
-        self.last_temp = 0
-        self.ir_available = True
-        print("[IR Camera] Initialized (OV5647 with IR-CUT)")
-    
-    def get_temperature(self):
-        """Simulate IR temperature from camera"""
-        # The OV5647 with IR-CUT can detect thermal radiation
-        # In practice, you'd need a separate thermal sensor
-        # This is a placeholder
-        return self.last_temp
-    
-    def detect_moisture_spots(self, frame):
-        """Analyze frame for moisture/thermal anomalies"""
-        try:
-            # Convert to grayscale
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            
-            # Apply Gaussian blur
-            blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-            
-            # Detect darker areas (potential moisture)
-            _, thresh = cv2.threshold(blurred, 100, 255, cv2.THRESH_BINARY_INV)
-            
-            # Find contours
-            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            
-            moisture_areas = []
-            for contour in contours:
-                area = cv2.contourArea(contour)
-                if area > 100:  # Minimum area threshold
-                    x, y, w, h = cv2.boundingRect(contour)
-                    moisture_areas.append({
-                        'x': x, 'y': y, 'width': w, 'height': h, 'area': area
-                    })
-            
-            return moisture_areas
-        
-        except Exception as e:
-            print(f"[IR Camera] Error detecting moisture: {e}")
-            return []
 
 # Usage example
 if __name__ == "__main__":

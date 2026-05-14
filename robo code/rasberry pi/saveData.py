@@ -42,47 +42,30 @@ class LocalDataManager:
         ''')
         conn.commit()
         conn.close()
-    
+        
     def add_moisture_reading(self, gps_lat, gps_lng, moisture, ir_temp=None, 
                             image_path=None, severity='Minor'):
-        """Add moisture reading with optional image"""
-        
-        # Validate data
+        # 1. Validate quickly
         if not self.validate_data(gps_lat, gps_lng, moisture):
-            print("Data validation failed")
             return False
         
         try:
-            # Create reading record
-            reading_data = {
-                'gps_latitude': gps_lat,
-                'gps_longitude': gps_lng,
-                'date': datetime.now().strftime('%Y-%m-%d'),
-                'time': datetime.now().strftime('%H:%M:%S'),
-                'moisture': moisture,
-                'ir_temperature': ir_temp,
-                'severity': severity,
-                'timestamp': datetime.now().isoformat()
-            }
-            
-            # Save image if provided
             image_filename = None
+            # 2. Only copy image if it actually exists and is needed
             if image_path and os.path.exists(image_path):
                 image_filename = self.save_image(image_path, gps_lat, gps_lng)
-                reading_data['image_filename'] = image_filename
             
-            # Save to database
+            # 3. Save to database (This is your primary record)
             self.save_to_database(gps_lat, gps_lng, moisture, ir_temp, 
                                  image_filename, severity)
             
-            # Save JSON record
-            self.save_json_record(reading_data)
-            
-            print(f"Reading saved: {reading_data}")
+            # 4. Remove the print(reading_data) if it's huge, 
+            # as printing to console also takes memory/time
+            print(f"[Storage] Reading saved @ {moisture}%")
             return True
-        
+            
         except Exception as e:
-            print(f"Error adding moisture reading: {e}")
+            print(f"Error: {e}")
             return False
     
     def save_image(self, source_image_path, gps_lat, gps_lng):

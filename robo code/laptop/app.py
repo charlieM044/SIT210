@@ -4,7 +4,7 @@ import requests
 app = Flask(__name__)
 
 # Raspberry Pi server URL
-PI_SERVER = 'http://localhost:5000'
+PI_SERVER = 'http://10.222.154.195:5000'
 
 # Track connection status
 connection_status = {'connected': False}
