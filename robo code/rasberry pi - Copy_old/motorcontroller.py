@@ -142,3 +142,62 @@ class MotorController:
         self.pwm2.stop()
         GPIO.cleanup()
         print("[Motors] GPIO cleaned up")
+        
+def test_motor_controller():
+    print("\n=== STARTING MOTOR CONTROLLER TEST SEQUENCE ===")
+    
+    # 1. Initialize the controller
+    # Adjust max_speed here if you want to test capping limits (e.g., max_speed=80)
+    controller = MotorController(max_speed=100)
+    
+    try:
+        # 2. Test Forward Drive
+        print("\n--- Testing: Forward (50% speed for 2 seconds) ---")
+        controller._set_motor(MOTOR1_IN1, MOTOR1_IN2, controller.pwm1, 50)
+        controller._set_motor(MOTOR2_IN1, MOTOR2_IN2, controller.pwm2, 50)
+        time.sleep(2)
+
+        # 3. Test Backward Drive
+        print("\n--- Testing: Reverse (50% speed for 2 seconds) ---")
+        controller._set_motor(MOTOR1_IN1, MOTOR1_IN2, controller.pwm1, -50)
+        controller._set_motor(MOTOR2_IN1, MOTOR2_IN2, controller.pwm2, -50)
+        time.sleep(2)
+
+        # 4. Test Zero / Stop Condition
+        print("\n--- Testing: Full Stop (1 second) ---")
+        controller._set_motor(MOTOR1_IN1, MOTOR1_IN2, controller.pwm1, 0)
+        controller._set_motor(MOTOR2_IN1, MOTOR2_IN2, controller.pwm2, 0)
+        time.sleep(1)
+
+        # 5. Test Tank Turn / Opposite Directions
+        print("\n--- Testing: Spin Turn Right (Left forward 40%, Right reverse 40% for 1.5 seconds) ---")
+        controller._set_motor(MOTOR1_IN1, MOTOR1_IN2, controller.pwm1, 40)    # Motor 1 Forward
+        controller._set_motor(MOTOR2_IN1, MOTOR2_IN2, controller.pwm2, -40)   # Motor 2 Reverse
+        time.sleep(1.5)
+
+        # 6. Test Safeguards (Speed Clipping)
+        print("\n--- Testing: Speed Cap Safeguard (Requesting 150% speed) ---")
+        print("Expected behavior: PWM duty cycle should cap tightly at the max_speed ceiling.")
+        controller._set_motor(MOTOR1_IN1, MOTOR1_IN2, controller.pwm1, 150)
+        time.sleep(1)
+
+    except KeyboardInterrupt:
+        print("\n[Test] Sequence interrupted by user.")
+        
+    finally:
+        # 7. Safety Cleanup
+        print("\n--- Testing: Cleanup & Emergency Stop ---")
+        # Explicitly zero out the motors first
+        controller._set_motor(MOTOR1_IN1, MOTOR1_IN2, controller.pwm1, 0)
+        controller._set_motor(MOTOR2_IN1, MOTOR2_IN2, controller.pwm2, 0)
+        
+        # Stop PWM streams
+        controller.pwm1.stop()
+        controller.pwm2.stop()
+        
+        # Release the GPIO pins back to the system safely
+        GPIO.cleanup()
+        print("=== TEST SEQUENCE COMPLETE: GPIO Cleaned Up ===")
+
+if __name__ == "__main__":
+    test_motor_controller()
