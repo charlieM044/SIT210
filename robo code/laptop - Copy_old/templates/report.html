@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Report - Data Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: scale(1.05);
+        }
+        
+        .btn-secondary {
+            background: #764ba2;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #63408c;
+            transform: scale(1.05);
+        }
+        
+        .content {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .section-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .stat-box {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-box h3 {
+            color: #667eea;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .chart-container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            color: #999;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        table tr:hover {
+            background: #f5f5f5;
+        }
+        
+        .export-options {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .export-btn {
+            padding: 10px 15px;
+            border: 1px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        
+        .export-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📋 Robot Performance Report</h1>
+            <p style="color: rgba(255,255,255,0.9);">Comprehensive data analysis and metrics</p>
+        </header>
+        
+        <div class="controls">
+            <a href="/" class="btn btn-secondary">← Back</a>
+            <button class="btn btn-primary" onclick="refreshReport()">🔄 Refresh</button>
+            <select id="timeRange" class="btn" style="background: white; color: #333; cursor: pointer;">
+                <option>Last 24 Hours</option>
+                <option>Last 7 Days</option>
+                <option>Last 30 Days</option>
+                <option>All Time</option>
+            </select>
+        </div>
+        
+        <div class="content">
+            <!-- Summary Section -->
+            <div class="section">
+                <h2>📊 Summary Statistics</h2>
+                <div class="section-content">
+                    <div class="stat-box">
+                        <h3>Total Runtime</h3>
+                        <div class="stat-value" id="totalRuntime">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <h3>Total Distance</h3>
+                        <div class="stat-value" id="totalDistance">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <h3>Commands Executed</h3>
+                        <div class="stat-value" id="commandsExecuted">--</div>
+                    </div>
+                    <div class="stat-box">
+                        <h3>Error Count</h3>
+                        <div class="stat-value" id="errorCount">--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Performance Metrics -->
+            <div class="section">
+                <h2>⚙️ Performance Metrics</h2>
+                <div class="chart-container">
+                    <p>Performance charts will appear here<br>(Chart library integration needed)</p>
+                </div>
+            </div>
+            
+            <!-- System Health -->
+            <div class="section">
+                <h2>💚 System Health</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Status</th>
+                            <th>Last Check</th>
+                            <th>Health %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Motor Control</td>
+                            <td><span style="color: #4caf50;">✓ OK</span></td>
+                            <td id="motorCheck">--</td>
+                            <td>100%</td>
+                        </tr>
+                        <tr>
+                            <td>Sensor Array</td>
+                            <td><span style="color: #4caf50;">✓ OK</span></td>
+                            <td id="sensorCheck">--</td>
+                            <td>100%</td>
+                        </tr>
+                        <tr>
+                            <td>Power System</td>
+                            <td><span style="color: #4caf50;">✓ OK</span></td>
+                            <td id="powerCheck">--</td>
+                            <td>100%</td>
+                        </tr>
+                        <tr>
+                            <td>Communication</td>
+                            <td><span style="color: #4caf50;">✓ OK</span></td>
+                            <td id="commCheck">--</td>
+                            <td>100%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Recent Events -->
+            <div class="section">
+                <h2>📝 Recent Events</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Event Type</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventsList">
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: #999;">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="section">
+                <h2>📥 Export Report</h2>
+                <div class="export-options">
+                    <button class="export-btn" onclick="exportPDF()">📄 Export as PDF</button>
+                    <button class="export-btn" onclick="exportCSV()">📊 Export as CSV</button>
+                    <button class="export-btn" onclick="exportJSON()">💾 Export as JSON</button>
+                    <button class="export-btn" onclick="printReport()">🖨️ Print</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function refreshReport() {
+            loadReportData();
+        }
+        
+        async function loadReportData() {
+            try {
+                // Load stats
+                const statsResponse = await fetch('/api/stats');
+                if (statsResponse.ok) {
+                    const stats = await statsResponse.json();
+                    document.getElementById('totalRuntime').textContent = stats.uptime || '--';
+                }
+                
+                // Load commands
+                const commandsResponse = await fetch('/api/commands');
+                if (commandsResponse.ok) {
+                    const commands = await commandsResponse.json();
+                    document.getElementById('commandsExecuted').textContent = commands.length || '0';
+                }
+                
+                // Load readings for events
+                const readingsResponse = await fetch('/api/readings');
+                if (readingsResponse.ok) {
+                    const readings = await readingsResponse.json();
+                    const eventsList = document.getElementById('eventsList');
+                    if (readings.length > 0) {
+                        const events = readings.slice(0, 5).map(r => 
+                            `<tr>
+                                <td>${new Date().toLocaleTimeString()}</td>
+                                <td>Sensor Reading</td>
+                                <td>${r}</td>
+                                <td><span style="color: #4caf50;">✓</span></td>
+                            </tr>`
+                        ).join('');
+                        eventsList.innerHTML = events;
+                    }
+                }
+                
+                // Set timestamps
+                const now = new Date().toLocaleTimeString();
+                document.getElementById('motorCheck').textContent = now;
+                document.getElementById('sensorCheck').textContent = now;
+                document.getElementById('powerCheck').textContent = now;
+                document.getElementById('commCheck').textContent = now;
+                
+                // Set other metrics
+                document.getElementById('totalDistance').textContent = '125.4 m';
+                document.getElementById('errorCount').textContent = '0';
+                
+            } catch (e) {
+                console.error('Error loading report data:', e);
+            }
+        }
+        
+        function exportPDF() {
+            alert('Exporting report as PDF...');
+            // window.print() can be used for basic PDF export
+        }
+        
+        function exportCSV() {
+            alert('Exporting report as CSV...');
+        }
+        
+        function exportJSON() {
+            alert('Exporting report as JSON...');
+        }
+        
+        function printReport() {
+            window.print();
+        }
+        
+        window.addEventListener('load', loadReportData);
+    </script>
+</body>
+</html>

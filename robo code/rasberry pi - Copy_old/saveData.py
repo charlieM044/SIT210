@@ -1,7 +1,14 @@
 """
 saveData.py  –  LocalDataManager
-In-memory ring buffer for fast reads; SQLite for persistence across reboots.
-All path/size constants come from config.py.
+Changes vs original:
+  • In-memory ring buffer (default 500 readings) instead of loading the entire
+    SQLite table into a Python list on every API call.  The Pi only needs to
+    serve recent data; long-term archiving happens on the PC side.
+  • get_all_readings() returns from the ring buffer (no SQL SELECT *).
+  • get_moisture_stats() computed from the buffer, not a DB query.
+  • SQLite writes are still done (non-blocking) so data survives a reboot,
+    but reads from the buffer avoid repeated DB round-trips.
+  • Image saving is optional and skipped if the source path doesn't exist.
 """
 
 import os
@@ -12,24 +19,28 @@ import threading
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from config import DATA_DIR, IMAGE_DIR, DB_PATH, RING_BUFFER_SIZE
 
 
 class LocalDataManager:
-    def __init__(self):
-        self.base_path   = Path(DATA_DIR)
-        self.images_path = Path(IMAGE_DIR)
-        self.db_path     = Path(DB_PATH)
+    RING_SIZE = 500   # how many readings to keep in RAM
+
+    def __init__(self, base_path='./robot_data'):
+        self.base_path   = Path(base_path)
+        self.images_path = self.base_path / 'images'
+        self.data_path   = self.base_path / 'data'
+        self.db_path     = self.base_path / 'robot_data.db'
 
         self.images_path.mkdir(parents=True, exist_ok=True)
-        (self.base_path / 'data').mkdir(parents=True, exist_ok=True)
+        self.data_path.mkdir(parents=True, exist_ok=True)
 
+        # Thread-safe ring buffer – the primary in-memory store
         self._lock   = threading.Lock()
-        self._buffer = deque(maxlen=RING_BUFFER_SIZE)
+        self._buffer = deque(maxlen=self.RING_SIZE)
 
         self._init_database()
-        self._warm_buffer()
+        self._load_recent_from_db()   # warm the buffer on startup
 
+    # ── DB init ────────────────────────────────────────────────────────────────
     def _init_database(self):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute('''
@@ -48,19 +59,20 @@ class LocalDataManager:
             ''')
             conn.commit()
 
-    def _warm_buffer(self):
+    def _load_recent_from_db(self):
+        """Warm the ring buffer from the last RING_SIZE rows in the DB."""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 rows = conn.execute(
                     f'SELECT * FROM moisture_readings '
-                    f'ORDER BY id DESC LIMIT {RING_BUFFER_SIZE}'
+                    f'ORDER BY id DESC LIMIT {self.RING_SIZE}'
                 ).fetchall()
-            for row in reversed(rows):
+            for row in reversed(rows):   # oldest first
                 self._buffer.append(self._row_to_dict(row))
         except Exception as e:
             print(f"[Storage] warm-up error: {e}")
 
-    # ── Write ──────────────────────────────────────────────────────────────────
+    # ── Public write ───────────────────────────────────────────────────────────
     def add_moisture_reading(self, gps_lat, gps_lng, moisture,
                              ir_temp=None, image_path=None, severity='Minor'):
         if not self._validate(gps_lat, gps_lng, moisture):
@@ -70,8 +82,8 @@ class LocalDataManager:
             if image_path and os.path.exists(image_path):
                 image_filename = self._save_image(image_path, gps_lat, gps_lng)
 
-            now = datetime.now()
-            row = {
+            now   = datetime.now()
+            row   = {
                 'id':        None,
                 'timestamp': now.isoformat(sep=' ', timespec='seconds'),
                 'gps_lat':   gps_lat,
@@ -83,21 +95,26 @@ class LocalDataManager:
                 'severity':  severity,
                 'image':     image_filename,
             }
+
+            # Non-blocking DB write in background thread
             threading.Thread(
-                target=self._write_db,
+                target=self._write_to_db,
                 args=(gps_lat, gps_lng, moisture, ir_temp, image_filename, severity),
                 daemon=True
             ).start()
+
             with self._lock:
                 self._buffer.append(row)
+
             print(f"[Storage] saved @ {moisture:.1f}% {severity}")
             return True
+
         except Exception as e:
-            print(f"[Storage] error: {e}")
+            print(f"[Storage] add_moisture_reading error: {e}")
             return False
 
-    def _write_db(self, gps_lat, gps_lng, moisture, ir_temp,
-                  image_filename, severity):
+    def _write_to_db(self, gps_lat, gps_lng, moisture, ir_temp,
+                     image_filename, severity):
         try:
             now = datetime.now()
             with sqlite3.connect(self.db_path) as conn:
@@ -113,8 +130,9 @@ class LocalDataManager:
         except Exception as e:
             print(f"[Storage] DB write error: {e}")
 
-    # ── Read ───────────────────────────────────────────────────────────────────
+    # ── Public reads ───────────────────────────────────────────────────────────
     def get_all_readings(self):
+        """Return a copy of the ring buffer (most-recent last)."""
         with self._lock:
             return list(self._buffer)
 
@@ -139,14 +157,14 @@ class LocalDataManager:
                 total += p.stat().st_size
                 count += 1
         return {
-            'total_files':   count,
-            'total_size_mb': round(total / (1024 * 1024), 2),
-            'images':        len(list(self.images_path.glob('*.jpg'))),
-            'data_path':     str(self.base_path),
-            'buffer_size':   len(self._buffer),
+            'total_files':    count,
+            'total_size_mb':  round(total / (1024 * 1024), 2),
+            'images':         len(list(self.images_path.glob('*.jpg'))),
+            'data_path':      str(self.base_path),
+            'buffer_size':    len(self._buffer),
         }
 
-    def export_report(self, filename='inspection_report.json'):
+    def export_inspection_report(self, output_filename='inspection_report.json'):
         readings = self.get_all_readings()
         stats    = self.get_moisture_stats()
         report   = {
@@ -156,7 +174,7 @@ class LocalDataManager:
             'readings':           readings,
             'critical_locations': [r for r in readings if r.get('severity') == 'Critical'],
         }
-        path = self.base_path / filename
+        path = self.base_path / output_filename
         with open(path, 'w') as f:
             json.dump(report, f, indent=2)
         print(f"[Storage] report → {path}")
@@ -166,19 +184,24 @@ class LocalDataManager:
     @staticmethod
     def _row_to_dict(row):
         return {
-            'id': row[0], 'timestamp': row[1],
-            'gps_lat': row[2], 'gps_lng': row[3],
-            'date': row[4], 'time': row[5],
-            'moisture': row[6], 'ir_temp': row[7],
-            'severity': row[8], 'image': row[9],
+            'id':        row[0],
+            'timestamp': row[1],
+            'gps_lat':   row[2],
+            'gps_lng':   row[3],
+            'date':      row[4],
+            'time':      row[5],
+            'moisture':  row[6],
+            'ir_temp':   row[7],
+            'severity':  row[8],
+            'image':     row[9],
         }
 
     def _save_image(self, source, gps_lat, gps_lng):
         try:
-            ts    = datetime.now().strftime('%Y%m%d_%H%M%S')
-            fname = (f"moisture_{ts}"
-                     f"_lat{abs(gps_lat):.4f}_lng{abs(gps_lng):.4f}.jpg"
-                     .replace('.', '_', 2))
+            ts      = datetime.now().strftime('%Y%m%d_%H%M%S')
+            lat_str = f"{abs(gps_lat):.4f}".replace('.', '_')
+            lng_str = f"{abs(gps_lng):.4f}".replace('.', '_')
+            fname   = f"moisture_{ts}_lat{lat_str}_lng{lng_str}.jpg"
             shutil.copy(source, self.images_path / fname)
             return fname
         except Exception as e:
@@ -188,13 +211,21 @@ class LocalDataManager:
     @staticmethod
     def _validate(gps_lat, gps_lng, moisture):
         if gps_lat  is not None and not (-90  <= gps_lat  <= 90):
-            print(f"[Storage] invalid lat: {gps_lat}");  return False
+            print(f"[Storage] invalid lat: {gps_lat}")
+            return False
         if gps_lng  is not None and not (-180 <= gps_lng  <= 180):
-            print(f"[Storage] invalid lng: {gps_lng}");  return False
+            print(f"[Storage] invalid lng: {gps_lng}")
+            return False
         if moisture is not None and not (0    <= moisture <= 100):
-            print(f"[Storage] invalid moisture: {moisture}"); return False
+            print(f"[Storage] invalid moisture: {moisture}")
+            return False
         return True
 
 
-# Module-level singleton
-storage = LocalDataManager()
+# ── Smoke-test ─────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    s = LocalDataManager('/tmp/robot_test')
+    s.add_moisture_reading(-37.8136, 144.9631, 75.5, ir_temp=18.2, severity='Moderate')
+    print("readings:", len(s.get_all_readings()))
+    print("stats   :", s.get_moisture_stats())
+    print("storage :", s.get_storage_info())
