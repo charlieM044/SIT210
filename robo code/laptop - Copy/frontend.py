@@ -59,11 +59,18 @@ def proxy_get(endpoint):
         return jsonify({}), 503
 
 # ── Motor control ──────────────────────────────────────────────────────────────
+# Accepts POST /api/control  body: {"command": "forward"} — matches control.html
+# Also accepts POST /api/control/<command> for backwards-compat / curl testing
+VALID_COMMANDS = {'forward', 'backward', 'left', 'right', 'stop'}
+
+@app.route('/api/control', methods=['POST'])
 @app.route('/api/control/<command>', methods=['POST'])
-def control(command):
-    valid = {'forward', 'backward', 'left', 'right', 'stop'}
-    if command not in valid:
-        return jsonify({'error': 'unknown command'}), 400
+def control(command=None):
+    if command is None:
+        command = (request.json or {}).get('command')
+    if command not in VALID_COMMANDS:
+        return jsonify({'error': f'unknown command: {command}',
+                        'valid': sorted(VALID_COMMANDS)}), 400
     try:
         r = requests.post(f'{PI_SERVER}/api/control',
                           json={'command': command}, timeout=2)
@@ -73,10 +80,15 @@ def control(command):
         return jsonify({'error': str(e)}), 503
 
 # ── Mode switching ─────────────────────────────────────────────────────────────
+# Accepts POST /api/mode  body: {"mode": "manual"} — matches control.html
+# Also accepts POST /api/mode/<new_mode> for backwards-compat
+@app.route('/api/mode', methods=['POST'])
 @app.route('/api/mode/<new_mode>', methods=['POST'])
-def set_mode(new_mode):
+def set_mode(new_mode=None):
+    if new_mode is None:
+        new_mode = (request.json or {}).get('mode')
     if new_mode not in ('manual', 'autonomous'):
-        return jsonify({'error': 'invalid mode'}), 400
+        return jsonify({'error': 'mode must be manual or autonomous'}), 400
     try:
         r = requests.post(f'{PI_SERVER}/api/mode',
                           json={'mode': new_mode}, timeout=2)
@@ -85,10 +97,15 @@ def set_mode(new_mode):
         return jsonify({'error': str(e)}), 503
 
 # ── Stream control ─────────────────────────────────────────────────────────────
+# Accepts POST /api/stream  body: {"action": "start"} — consistent with above
+# Also accepts POST /api/stream/<action> for backwards-compat
+@app.route('/api/stream', methods=['POST'])
 @app.route('/api/stream/<action>', methods=['POST'])
-def stream_control(action):
+def stream_control(action=None):
+    if action is None:
+        action = (request.json or {}).get('action')
     if action not in ('start', 'stop'):
-        return jsonify({'error': 'invalid action'}), 400
+        return jsonify({'error': 'action must be start or stop'}), 400
     try:
         r = requests.post(f'{PI_SERVER}/api/stream',
                           json={'action': action}, timeout=2)

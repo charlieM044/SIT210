@@ -2,6 +2,7 @@
 api/routes/control.py  –  Motor control and mode switching endpoints.
 """
 
+from click import command
 from flask import Blueprint, jsonify, request
 from state import state
 from hardware import motors
@@ -23,9 +24,10 @@ def control():
     if command not in COMMANDS:
         return jsonify({'error': f'unknown command: {command}',
                         'valid': list(COMMANDS)}), 400
-    if state['mode'] == 'manual':
+    executed = (state['mode'] == 'manual')
+    if executed:
         COMMANDS[command]()
-    return jsonify({'mode': state['mode'], 'command': command})
+    return jsonify({'mode': state['mode'], 'command': command, 'executed': executed})
 
 
 @control_bp.route('/api/mode', methods=['GET', 'POST'])
@@ -35,7 +37,8 @@ def mode():
         if new_mode not in ('manual', 'autonomous'):
             return jsonify({'error': 'mode must be manual or autonomous'}), 400
         state['mode'] = new_mode
-        motors.stop() if new_mode == 'manual' else motors.forward()
+        if new_mode == 'manual':
+             motors.stop()
         print(f"[Pi] → {new_mode.upper()}")
         return jsonify({'mode': new_mode})
     return jsonify({'mode': state['mode']})

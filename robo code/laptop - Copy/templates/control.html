@@ -249,7 +249,7 @@
             }
         }
         
-        // ── Single Unified Control Core Function ──────────────────────────────
+                // ── Single Unified Control Core Function ──────────────────────────────
         async function sendRobotCommand(commandName) {
             try {
                 const response = await fetch('/api/control', {
@@ -257,19 +257,22 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ command: commandName })
                 });
-                
+
                 const data = await response.json();
                 if (!response.ok) {
-                    updateStatus(`❌ Error: ${data.error || 'Command rejected'}`, false);
+                    updateStatus(`x Error: ${data.error || 'Command rejected'}`, false);
                 } else {
-                    updateStatus(`🟢 Moving: ${commandName.toUpperCase()}`, true);
+                    const msg = data.executed
+                        ? `Moving: ${commandName.toUpperCase()}`
+                        : `Autonomous mode active — command ignored`;
+                    updateStatus(msg, data.executed);
                 }
             } catch (err) {
                 console.error('Error sending command:', err);
-                updateStatus('❌ Connection Error', false);
+                updateStatus('X Connection Error', false);
             }
         }
-        
+                
         // ── Mode Selection Handler (Switches Manual/Autonomous) ────────────────
         async function setRobotMode(modeName) {
             try {
@@ -283,20 +286,20 @@
                 if (response.ok) {
                     currentMode = modeName;
                     if(modeName === 'manual') {
-                        updateStatus('🟢 Manual Control Enabled', true);
+                        updateStatus(':) Manual Control Enabled', true);
                     } else {
-                        updateStatus('🤖 Autonomous Mode Active', true);
+                        updateStatus(';] Autonomous Mode Active', true);
                     }
                 }
             } catch (err) {
                 console.error('Error setting mode:', err);
-                updateStatus('❌ Mode Switch Failed', false);
+                updateStatus('X Mode Switch Failed', false);
             }
         }
         
         function emergencyStop() {
             sendRobotCommand('stop');
-            updateStatus('🚨 EMERGENCY STOP ACTIVATED', false);
+            updateStatus('!!!! EMERGENCY STOP ACTIVATED', false);
         }
         
         // ── Keyboard Event Bindings ───────────────────────────────────────────
@@ -310,12 +313,19 @@
                 case 'ArrowRight': sendRobotCommand('right');    e.preventDefault(); break;
                 case ' ':          sendRobotCommand('stop');     e.preventDefault(); break;
             }
+
         });
         
         // Initialize status
-        window.addEventListener('load', () => {
-            updateStatus('🔌 System Connected (Manual)', true);
-        });
+        window.addEventListener('load', async () => {
+        const r = await fetch('/api/mode');
+        const data = await r.json();
+        currentMode = data.mode;
+        updateStatus(currentMode === 'manual'
+            ? 'Manual control enabled'
+            : 'Autonomous mode active', true);
+    });
+
     </script>
 </body>
 </html>
