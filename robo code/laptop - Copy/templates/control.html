@@ -132,6 +132,7 @@
             font-size: 1.2em;
             cursor: pointer;
             transition: all 0.2s;
+            text-align: center;
         }
         
         .movement-btn:hover {
@@ -146,6 +147,7 @@
         .forward { grid-column: 2; grid-row: 1; }
         .left { grid-column: 1; grid-row: 2; }
         .stop-center { grid-column: 2; grid-row: 2; background: #ff9800; }
+        .stop-center:hover { background: #e68a00; }
         .right { grid-column: 3; grid-row: 2; }
         .backward { grid-column: 2; grid-row: 3; }
         
@@ -165,18 +167,6 @@
         
         .emergency-stop:hover {
             background: #da190b;
-        }
-        
-        .video-placeholder {
-            width: 100%;
-            aspect-ratio: 16 / 9;
-            background: #000;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            margin-bottom: 15px;
         }
         
         .back-btn {
@@ -208,10 +198,9 @@
         <div class="controls-grid">
             <div class="card">
                 <h2>📹 Video Feed</h2>
-              <img src="/video_feed" width="640" height="480" 
-             style="width:100%; border-radius:8px;"
-            onerror="this.style.display='none'">
-                </div>
+                <img src="/video_feed" width="640" height="480" 
+                     style="width:100%; border-radius:8px;"
+                     onerror="this.style.replaceWith('Video Feed Offline')">
             </div>
             
             <div class="card">
@@ -223,23 +212,23 @@
                 </div>
                 
                 <div class="button-group">
-                    <button class="btn btn-start" onclick="startRobot()">▶️ START</button>
-                    <button class="btn btn-stop" onclick="stopRobot()">⏹️ STOP</button>
+                    <button class="btn btn-start" onclick="setRobotMode('manual')">▶️ MANUAL MODE</button>
+                    <button class="btn btn-stop" onclick="setRobotMode('autonomous')">🤖 AUTONOMOUS</button>
                 </div>
                 
                 <h3 style="margin: 20px 0 10px 0; color: #333;">Movement Controls</h3>
                 <div class="movement-pad">
-                    <button class="movement-btn forward" onclick="moveForward()">⬆️</button>
-                    <button class="movement-btn left" onclick="moveLeft()">⬅️</button>
-                    <button class="movement-btn stop-center" onclick="stopMotors()">⏸️</button>
-                    <button class="movement-btn right" onclick="moveRight()">➡️</button>
-                    <button class="movement-btn backward" onclick="moveBackward()">⬇️</button>
+                    <button class="movement-btn forward" onclick="sendRobotCommand('forward')">▲ Up</button>
+                    <button class="movement-btn left" onclick="sendRobotCommand('left')">◀ Left</button>
+                    <button class="movement-btn stop-center" onclick="sendRobotCommand('stop')">■ Stop</button>
+                    <button class="movement-btn right" onclick="sendRobotCommand('right')">Right ▶</button>
+                    <button class="movement-btn backward" onclick="sendRobotCommand('backward')">▼ Down</button>
                 </div>
                 
                 <button class="emergency-stop" onclick="emergencyStop()">🚨 EMERGENCY STOP</button>
                 
                 <p style="color: #666; font-size: 0.9em; margin-top: 15px; text-align: center;">
-                    💡 Use arrow keys to control movement
+                    💡 Use arrow keys to control movement. Spacebar to Stop.
                 </p>
             </div>
         </div>
@@ -248,7 +237,7 @@
     </div>
     
     <script>
-        let isRunning = false;
+        let currentMode = 'manual';
         
         function updateStatus(message, online = false) {
             document.getElementById('statusText').textContent = message;
@@ -260,83 +249,72 @@
             }
         }
         
-        function startRobot() {
-            fetch('/api/control/start', { method: 'POST' })
-                .then(r => r.json())
-                .then(() => {
-                    isRunning = true;
-                    updateStatus('🟢 Online & Running', true);
-                })
-                .catch(err => {
-                    console.error('Error starting robot:', err);
-                    updateStatus('❌ Connection Error', false);
+        // ── Single Unified Control Core Function ──────────────────────────────
+        async function sendRobotCommand(commandName) {
+            try {
+                const response = await fetch('/api/control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: commandName })
                 });
+                
+                const data = await response.json();
+                if (!response.ok) {
+                    updateStatus(`❌ Error: ${data.error || 'Command rejected'}`, false);
+                } else {
+                    updateStatus(`🟢 Moving: ${commandName.toUpperCase()}`, true);
+                }
+            } catch (err) {
+                console.error('Error sending command:', err);
+                updateStatus('❌ Connection Error', false);
+            }
         }
         
-        function stopRobot() {
-            fetch('/api/control/stop', { method: 'POST' })
-                .then(r => r.json())
-                .then(() => {
-                    isRunning = false;
-                    updateStatus('🔴 Stopped', false);
-                })
-                .catch(err => {
-                    console.error('Error stopping robot:', err);
-                    updateStatus('❌ Connection Error', false);
+        // ── Mode Selection Handler (Switches Manual/Autonomous) ────────────────
+        async function setRobotMode(modeName) {
+            try {
+                const response = await fetch('/api/mode', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: modeName })
                 });
-        }
-        
-        function moveForward() {
-            if (!isRunning) return;
-            fetch('/api/control/forward', { method: 'POST' })
-                .catch(() => updateStatus('❌ Command Failed', false));
-        }
-        
-        function moveBackward() {
-            if (!isRunning) return;
-            fetch('/api/control/backward', { method: 'POST' })
-                .catch(() => updateStatus('❌ Command Failed', false));
-        }
-        
-        function moveLeft() {
-            if (!isRunning) return;
-            fetch('/api/control/left', { method: 'POST' })
-                .catch(() => updateStatus('❌ Command Failed', false));
-        }
-        
-        function moveRight() {
-            if (!isRunning) return;
-            fetch('/api/control/right', { method: 'POST' })
-                .catch(() => updateStatus('❌ Command Failed', false));
-        }
-        
-        function stopMotors() {
-            fetch('/api/control/stop-motors', { method: 'POST' })
-                .catch(() => console.error('Stop failed'));
+                
+                const data = await response.json();
+                if (response.ok) {
+                    currentMode = modeName;
+                    if(modeName === 'manual') {
+                        updateStatus('🟢 Manual Control Enabled', true);
+                    } else {
+                        updateStatus('🤖 Autonomous Mode Active', true);
+                    }
+                }
+            } catch (err) {
+                console.error('Error setting mode:', err);
+                updateStatus('❌ Mode Switch Failed', false);
+            }
         }
         
         function emergencyStop() {
-            stopRobot();
-            stopMotors();
+            sendRobotCommand('stop');
             updateStatus('🚨 EMERGENCY STOP ACTIVATED', false);
         }
         
-        // Keyboard controls
+        // ── Keyboard Event Bindings ───────────────────────────────────────────
         document.addEventListener('keydown', (e) => {
-            if (!isRunning) return;
+            if (currentMode !== 'manual') return; // Only allow keys in manual mode
             
             switch(e.key) {
-                case 'ArrowUp': moveForward(); e.preventDefault(); break;
-                case 'ArrowDown': moveBackward(); e.preventDefault(); break;
-                case 'ArrowLeft': moveLeft(); e.preventDefault(); break;
-                case 'ArrowRight': moveRight(); e.preventDefault(); break;
-                case ' ': stopMotors(); e.preventDefault(); break;
+                case 'ArrowUp':    sendRobotCommand('forward');  e.preventDefault(); break;
+                case 'ArrowDown':  sendRobotCommand('backward'); e.preventDefault(); break;
+                case 'ArrowLeft':  sendRobotCommand('left');     e.preventDefault(); break;
+                case 'ArrowRight': sendRobotCommand('right');    e.preventDefault(); break;
+                case ' ':          sendRobotCommand('stop');     e.preventDefault(); break;
             }
         });
         
         // Initialize status
         window.addEventListener('load', () => {
-            updateStatus('🔌 Ready to Connect', false);
+            updateStatus('🔌 System Connected (Manual)', true);
         });
     </script>
 </body>
