@@ -200,31 +200,7 @@
                 <h2>📹 Video Feed</h2>
                 <img src="/video_feed" width="640" height="480" 
                      style="width:100%; border-radius:8px;"
-                     onerror="this.style.replaceWith('Video Feed Offline')">
-            </div>
-            
-            <div class="card">
-                <h2>🎮 Control Commands</h2>
-                
-                <div class="status-box">
-                    <span class="status-indicator" id="statusLight"></span>
-                    <span id="statusText">Initializing...</span>
-                </div>
-                
-                <div class="button-group">
-                    <button class="btn btn-start" onclick="setRobotMode('manual')">▶️ MANUAL MODE</button>
-                    <button class="btn btn-stop" onclick="setRobotMode('autonomous')">🤖 AUTONOMOUS</button>
-                </div>
-                
-                <h3 style="margin: 20px 0 10px 0; color: #333;">Movement Controls</h3>
-                <div class="movement-pad">
-                    <button class="movement-btn forward" onclick="sendRobotCommand('forward')">▲ Up</button>
-                    <button class="movement-btn left" onclick="sendRobotCommand('left')">◀ Left</button>
-                    <button class="movement-btn stop-center" onclick="sendRobotCommand('stop')">■ Stop</button>
-                    <button class="movement-btn right" onclick="sendRobotCommand('right')">Right ▶</button>
-                    <button class="movement-btn backward" onclick="sendRobotCommand('backward')">▼ Down</button>
-                </div>
-                
+          git 
                 <button class="emergency-stop" onclick="emergencyStop()">🚨 EMERGENCY STOP</button>
                 
                 <p style="color: #666; font-size: 0.9em; margin-top: 15px; text-align: center;">
@@ -239,6 +215,20 @@
     <script>
         let currentMode = 'manual';
         
+        function updateMode(mode) {
+            currentMode = mode;
+            const badge = document.getElementById('modeBadge');
+            if (mode === 'manual') {
+                badge.textContent = 'MANUAL';
+                badge.style.background = '#c8e6c9';
+                badge.style.color = '#2e7d32';
+            } else {
+                badge.textContent = 'AUTONOMOUS';
+                badge.style.background = '#fff3e0';
+                badge.style.color = '#e65100';
+            }
+        }
+
         function updateStatus(message, online = false) {
             document.getElementById('statusText').textContent = message;
             const light = document.getElementById('statusLight');
@@ -284,7 +274,7 @@
                 
                 const data = await response.json();
                 if (response.ok) {
-                    currentMode = modeName;
+                    updateMode(modeName);
                     if(modeName === 'manual') {
                         updateStatus(':) Manual Control Enabled', true);
                     } else {
@@ -297,11 +287,11 @@
             }
         }
         
-        function emergencyStop() {
-            sendRobotCommand('stop');
-            updateStatus('!!!! EMERGENCY STOP ACTIVATED', false);
-        }
-        
+      async function emergencyStop() {
+    await setRobotMode('manual');
+    await sendRobotCommand('stop');
+    updateStatus('!!!! EMERGENCY STOP ACTIVATED', false);
+}
         // ── Keyboard Event Bindings ───────────────────────────────────────────
         document.addEventListener('keydown', (e) => {
             if (currentMode !== 'manual') return; // Only allow keys in manual mode
@@ -320,7 +310,7 @@
         window.addEventListener('load', async () => {
         const r = await fetch('/api/mode');
         const data = await r.json();
-        currentMode = data.mode;
+        updateMode(data.mode);
         updateStatus(currentMode === 'manual'
             ? 'Manual control enabled'
             : 'Autonomous mode active', true);

@@ -17,6 +17,7 @@ COMMANDS = {
     'stop':     motors.stop,
 }
 
+ALWAYS_EXECUTE = {'stop'}
 
 @control_bp.route('/api/control', methods=['POST'])
 def control():
@@ -24,11 +25,10 @@ def control():
     if command not in COMMANDS:
         return jsonify({'error': f'unknown command: {command}',
                         'valid': list(COMMANDS)}), 400
-    executed = (state['mode'] == 'manual')
+    executed = (state['mode'] == 'manual') or (command in ALWAYS_EXECUTE)
     if executed:
         COMMANDS[command]()
     return jsonify({'mode': state['mode'], 'command': command, 'executed': executed})
-
 
 @control_bp.route('/api/mode', methods=['GET', 'POST'])
 def mode():
