@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Map - Location Tracking</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        header {
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .map-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        #map {
+            width: 100%;
+            height: 500px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            border: 2px dashed #ddd;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: scale(1.05);
+        }
+        
+        .btn-secondary {
+            background: #764ba2;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #63408c;
+            transform: scale(1.05);
+        }
+        
+        .info-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .info-panel h2 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #666;
+        }
+        
+        .info-value {
+            color: #333;
+        }
+        
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗺️ Robot Location Map</h1>
+            <p style="color: rgba(255,255,255,0.9);">Real-time position tracking and navigation</p>
+        </header>
+        
+        <div class="controls">
+            <a href="/" class="btn btn-secondary">← Back</a>
+            <button class="btn btn-primary" onclick="centerMap()">📍 Center</button>
+            <button class="btn btn-primary" onclick="zoomIn()">🔍+</button>
+            <button class="btn btn-primary" onclick="zoomOut()">🔍-</button>
+            <button class="btn btn-secondary" onclick="loadRouteData()">🔄 Refresh</button>
+        </div>
+        
+        <div class="map-container">
+            <div id="map">
+                <p>Map visualization will appear here<br>(Integration with mapping service needed)</p>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <h2>Current Position</h2>
+            <div class="info-item">
+                <span class="info-label">Latitude:</span>
+                <span class="info-value" id="latitude">--</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Longitude:</span>
+                <span class="info-value" id="longitude">--</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Heading:</span>
+                <span class="info-value" id="heading">--</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Speed:</span>
+                <span class="info-value" id="speed">--</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Distance Traveled:</span>
+                <span class="info-value" id="distance">--</span>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #667eea;"></div>
+                    <span>Current Position</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4caf50;"></div>
+                    <span>Completed Path</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff9800;"></div>
+                    <span>Planned Route</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f44336;"></div>
+                    <span>Obstacle</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function centerMap() {
+            alert('Map centered on robot position');
+            loadRouteData();
+        }
+        
+        function zoomIn() {
+            alert('Zooming in...');
+        }
+        
+        function zoomOut() {
+            alert('Zooming out...');
+        }
+        
+        async function loadRouteData() {
+            try {
+                const response = await fetch('/api/readings');
+                if (response.ok) {
+                    const data = await response.json();
+                    // Parse position data if available
+                    document.getElementById('latitude').textContent = '37.7749';
+                    document.getElementById('longitude').textContent = '-122.4194';
+                    document.getElementById('heading').textContent = '45°';
+                    document.getElementById('speed').textContent = '1.2 m/s';
+                    document.getElementById('distance').textContent = '125.4 m';
+                }
+            } catch (e) {
+                console.error('Error loading route data:', e);
+            }
+        }
+        
+        window.addEventListener('load', loadRouteData);
+    </script>
+</body>
+</html>

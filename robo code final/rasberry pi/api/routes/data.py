@@ -1,0 +1,49 @@
+"""
+api/routes/data.py  –  Sensor data and storage endpoints.
+"""
+
+import time
+from datetime import datetime
+from flask import Blueprint, jsonify, request
+from state import state
+from saveData import storage
+
+data_bp = Blueprint('data', __name__)
+
+
+@data_bp.route('/api/status')
+def status():
+    return jsonify({
+        'connected': True,
+        'mode':      state['mode'],
+        'uptime_s':  int(time.time() - state['start_time']),
+        'message':   'Pi server running',
+    })
+
+
+@data_bp.route('/api/readings')
+def get_readings():
+    since    = request.args.get('since', 0, type=float)
+    readings = storage.get_all_readings()
+    if since:
+        cutoff   = datetime.fromtimestamp(since).isoformat()
+        readings = [r for r in readings if r.get('timestamp', '') > cutoff]
+    return jsonify(readings)
+
+
+@data_bp.route('/api/stats')
+def get_stats():
+    stats  = storage.get_moisture_stats() or {}
+    stats['uptime'] = int(time.time() - state['start_time'])
+    return jsonify(stats)
+
+
+@data_bp.route('/api/critical')
+def get_critical():
+    return jsonify([r for r in storage.get_all_readings()
+                    if r.get('severity') == 'Critical'])
+
+
+@data_bp.route('/api/storage')
+def get_storage():
+    return jsonify(storage.get_storage_info())
