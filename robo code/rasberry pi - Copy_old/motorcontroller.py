@@ -85,25 +85,25 @@ class MotorController:
             pwm.ChangeDutyCycle(0)
 
     # ── Public API ─────────────────────────────────────────────────────────────
-    def forward(self, speed=60):
+    def forward(self, speed=100):
         self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1,  speed)
         self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2,  speed)
         self.current_speed = speed
         print(f"[Motors] forward {speed}%")
 
-    def backward(self, speed=60):
+    def backward(self, speed=100):
         self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1, -speed)
         self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2, -speed)
         self.current_speed = -speed
         print(f"[Motors] backward {speed}%")
 
-    def left(self, speed=60):
+    def left(self, speed=100):
         """Pivot left – left motor reverse, right motor forward."""
         self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1, -speed)
         self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2,  speed)
         print(f"[Motors] left {speed}%")
 
-    def right(self, speed=60):
+    def right(self, speed=100):
         """Pivot right – left motor forward, right motor reverse."""
         self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1,  speed)
         self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2, -speed)

@@ -21,7 +21,7 @@ else:
         @staticmethod
         def setmode(mode): pass
         @staticmethod
-        def setup(pin, mode): pass
+        def setup(pin, mode, initial=0): pass
         @staticmethod
         def output(pin, state):
             print(f"[MOCK GPIO] pin={pin} → {state}")
@@ -42,12 +42,19 @@ class MotorController:
         self.current_speed = 0
 
         GPIO.setmode(GPIO.BCM)
-        for pin in [MOTOR1_IN1, MOTOR1_IN2, MOTOR1_PWM,
-                    MOTOR2_IN1, MOTOR2_IN2, MOTOR2_PWM]:
-            GPIO.setup(pin, GPIO.OUT)
+        
+        # FIX 1: Set up direction pins with explicit initial LOW states to prevent startup spin.
+        # DO NOT include MOTOR1_PWM or MOTOR2_PWM in this digital output loop.
+        all_output_pins = [MOTOR1_IN1, MOTOR1_IN2, MOTOR1_PWM,
+                           MOTOR2_IN1, MOTOR2_IN2, MOTOR2_PWM]
+        for pin in all_output_pins:
+            GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
 
+                # FIX 2: Under Bookworm, initializing GPIO.PWM handles pin setup automatically.
         self.pwm1 = GPIO.PWM(MOTOR1_PWM, MOTOR_PWM_FREQ)
         self.pwm2 = GPIO.PWM(MOTOR2_PWM, MOTOR_PWM_FREQ)
+        
+        # Start at 0 duty cycle safely
         self.pwm1.start(0)
         self.pwm2.start(0)
         print("[Motors] ✓ initialised")
@@ -108,13 +115,40 @@ class MotorController:
         self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2, 0)
         self.current_speed = 0
         print("[Motors] stopped")
+        
+    def test_raw_forward(self):
+        GPIO.output(MOTOR1_IN1, GPIO.HIGH)
+        GPIO.output(MOTOR1_IN2, GPIO.LOW)
+        self.pwm1.ChangeDutyCycle(60)
+        print("[Raw] M1 IN1=HIGH IN2=LOW")
+
+    def test_raw_backward(self):
+        GPIO.output(MOTOR1_IN1, GPIO.LOW)
+        GPIO.output(MOTOR1_IN2, GPIO.HIGH)
+        self.pwm1.ChangeDutyCycle(60)
+        print("[Raw] M1 IN1=LOW IN2=HIGH")
 
     def cleanup(self):
-        self.stop()
-        self.pwm1.stop()
-        self.pwm2.stop()
-        GPIO.cleanup()
-        print("[Motors] GPIO cleaned up")
+        self.shutdown()
+        
+    def shutdown(self):
+        # FIX 3: Force duty cycles to 0 explicitly before stopping objects
+        # to cleanly untangle the lgpio backend thread wrappers.
+        try:
+            if hasattr(self, 'pwm1') and self.pwm1:
+                self.pwm1.ChangeDutyCycle(0)
+                self.pwm1.stop()
+            if hasattr(self, 'pwm2') and self.pwm2:
+                self.pwm2.ChangeDutyCycle(0)
+                self.pwm2.stop()
+        except Exception:
+            pass
+            
+        try:
+            GPIO.cleanup()
+            print("[Motors] GPIO cleaned up")
+        except Exception as e:
+            print(f"[Motors] GPIO cleanup warning: {e}")
 
 
 # Module-level singleton — import this everywhere

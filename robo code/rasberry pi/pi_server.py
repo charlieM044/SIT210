@@ -120,7 +120,7 @@ def autonomous_loop():
                        # ir_temp    = sensor.get('ir_temp'),
                       #  image_path = image_path,
                       #  severity   = severity,
-                  #  )
+                  #claud  )
                 if severity == 'Critical':
                     motors.stop()
                     time.sleep(2)

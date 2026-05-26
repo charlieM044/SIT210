@@ -26,28 +26,72 @@ def read_line():
         print(f"[Arduino] read error: {e}")
     return None
 
-
 def parse(line):
     """
     Parse an Arduino message into a dict, or return None.
 
-    Expected formats:
-      'SAFE'                    → {'type': 'safe'}
-      'WALL:remaining,angle,amount' → {'type': 'wall', 'remaining': float, ...}
+    Formats:
+      'ULTRASONIC: SAFE'
+      'ULTRASONIC: ERROR - Invalid Reading (d1: 36.2, d2: 0.0)'
+      'MOISTURE:327,MOIST'
+      'MOISTURE:THRESHOLD_TRIGGERED'
+      'GPS:NO_FIX'
+      'GPS:lat,lng'
     """
     if not line:
         return None
-    if line == 'SAFE':
-        return {'type': 'safe'}
-    if line.startswith('WALL:'):
+
+    # ── Ultrasonic ─────────────────────────────────────────────
+    if line.startswith('ULTRASONIC:'):
+        body = line[11:].strip()
+        if body == 'SAFE':
+            return {'type': 'ultrasonic', 'status': 'safe', 'wall': False}
+        if body.startswith('ERROR'):
+            # Extract d1/d2 if present
+            try:
+                d1 = float(body.split('d1:')[1].split(',')[0].strip())
+                d2 = float(body.split('d2:')[1].split(')')[0].strip())
+            except Exception:
+                d1, d2 = None, None
+            return {'type': 'ultrasonic', 'status': 'error',
+                    'wall': False, 'd1': d1, 'd2': d2}
+        # Numeric reading  e.g. 'ULTRASONIC: 45.2'
         try:
-            parts = line[5:].split(',')
-            return {
-                'type':      'wall',
-                'remaining': float(parts[0]),
-                'angle':     float(parts[1]),
-                'amount':    float(parts[2]),
-            }
+            dist = float(body)
+            return {'type': 'ultrasonic', 'status': 'ok',
+                    'wall': dist < 20, 'distance': dist}
+        except ValueError:
+            pass
+
+    # ── Moisture ───────────────────────────────────────────────
+    if line.startswith('MOISTURE:'):
+        body = line[9:].strip()
+        if body == 'THRESHOLD_TRIGGERED':
+            return {'type': 'moisture', 'status': 'threshold_triggered',
+                    'triggered': True}
+        try:
+            parts = body.split(',')
+            raw   = int(parts[0])
+            label = parts[1].strip() if len(parts) > 1 else None
+            # Convert raw ADC (0-1023) to percentage
+            pct   = round((raw / 1023) * 100, 1)
+            return {'type': 'moisture', 'status': 'ok',
+                    'raw': raw, 'label': label, 'percent': pct,
+                    'triggered': False}
         except Exception:
             pass
+
+    # ── GPS ────────────────────────────────────────────────────
+    if line.startswith('GPS:'):
+        body = line[4:].strip()
+        if body == 'NO_FIX':
+            return {'type': 'gps', 'status': 'no_fix',
+                    'lat': None, 'lng': None}
+        try:
+            lat, lng = body.split(',')
+            return {'type': 'gps', 'status': 'ok',
+                    'lat': float(lat), 'lng': float(lng)}
+        except Exception:
+            pass
+
     return None

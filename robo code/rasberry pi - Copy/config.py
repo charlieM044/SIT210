@@ -28,7 +28,7 @@ MOTOR2_IN1 = 23
 MOTOR2_IN2 = 24
 MOTOR2_PWM = 25
 MOTOR_DEFAULT_SPEED = 60    # %
-MOTOR_PWM_FREQ      = 1000  # Hz
+MOTOR_PWM_FREQ      = 100  # Hz
 
 # ── Arduino serial ─────────────────────────────────────────────────────────────
 SERIAL_PORT = '/dev/ttyACM0' if IS_PI else 'COM6'
