@@ -159,34 +159,35 @@ def _loop():
                     print("[Auto] no sensor data yet — waiting for Arduino")
                     continue
 
-                # Skip save if GPS has no fix and we have no coordinates
-                if sensor.get('gps_lat') is None:
-                    print("[Auto] skipping save — GPS no fix")
-                    continue
-
                 severity   = _determine_severity(sensor['moisture'])
                 image_path = None
 
+                # Capture image regardless of GPS status
+                # GPS coordinates can be null, but image is still valuable
                 if sensor['moisture'] > MOISTURE_MODERATE:
                     from hardware import camera
-                    image_path = camera.capture_image(
-                        sensor['gps_lat'],
-                        sensor['gps_lng'],
-                        sensor['moisture'],
-                    )
+                    try:
+                        image_path = camera.capture_image(
+                            sensor.get('gps_lat'),
+                            sensor.get('gps_lng'),
+                            sensor['moisture'],
+                        )
+                    except Exception as e:
+                        print(f"[Auto] image capture failed: {e}")
 
+                # Save regardless of GPS status — GPS can be null
                 storage.add_moisture_reading(
-                    gps_lat    = sensor['gps_lat'],
-                    gps_lng    = sensor['gps_lng'],
+                    gps_lat    = sensor.get('gps_lat'),  # May be None
+                    gps_lng    = sensor.get('gps_lng'),  # May be None
                     moisture   = sensor['moisture'],
                     image_path = image_path,
                     severity   = severity,
                 )
 
+                gps_str = f"({sensor['gps_lat']}, {sensor['gps_lng']})" if sensor.get('gps_lat') else "(NO FIX)"
                 print(f"[Auto] saved: moisture={sensor['moisture']:.1f}%"
                       f" ({sensor.get('moisture_label', '')}) "
-                      f"severity={severity} "
-                      f"gps=({sensor['gps_lat']}, {sensor['gps_lng']})")
+                      f"severity={severity} gps={gps_str}")
 
                 if severity == 'Critical':
                     motors.stop()

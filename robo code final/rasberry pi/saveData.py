@@ -175,9 +175,14 @@ class LocalDataManager:
     def _save_image(self, source, gps_lat, gps_lng):
         try:
             ts    = datetime.now().strftime('%Y%m%d_%H%M%S')
-            fname = (f"moisture_{ts}"
-                     f"_lat{abs(gps_lat):.4f}_lng{abs(gps_lng):.4f}.jpg"
-                     .replace('.', '_', 2))
+            # GPS coordinates optional
+            if gps_lat is not None and gps_lng is not None:
+                fname = (f"moisture_{ts}"
+                         f"_lat{abs(gps_lat):.4f}_lng{abs(gps_lng):.4f}.jpg"
+                         .replace('.', '_', 2))
+            else:
+                fname = (f"moisture_{ts}"
+                         f"_nofixgps.jpg")
             shutil.copy(source, self.images_path / fname)
             return fname
         except Exception as e:

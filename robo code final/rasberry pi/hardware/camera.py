@@ -104,9 +104,17 @@ class CameraManager:
             ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             cv2.putText(frame, ts,                          (10, 30),  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
             cv2.putText(frame, f"Moisture: {moisture:.1f}%",(10, 70),  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
-            cv2.putText(frame, f"GPS: {gps_lat:.4f}, {gps_lng:.4f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
-            fname = (f"moisture_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                     f"_lat{abs(gps_lat):.4f}_lng{abs(gps_lng):.4f}_{moisture:.0f}pct.jpg")
+            
+            # GPS coordinates optional — can be None if no fix yet
+            if gps_lat is not None and gps_lng is not None:
+                cv2.putText(frame, f"GPS: {gps_lat:.4f}, {gps_lng:.4f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
+                fname = (f"moisture_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                         f"_lat{abs(gps_lat):.4f}_lng{abs(gps_lng):.4f}_{moisture:.0f}pct.jpg")
+            else:
+                cv2.putText(frame, "GPS: NO FIX", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
+                fname = (f"moisture_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                         f"_nofixgps_{moisture:.0f}pct.jpg")
+            
             fpath = self.save_path / fname
             cv2.imwrite(str(fpath), frame)
             del frame
