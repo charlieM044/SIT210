@@ -77,51 +77,78 @@ def _process_parsed(parsed):
             _sensor_state['gps_lng']    = parsed.get('lng')
 
 
-def _handle_wall_avoidance(parsed, now, last_turn_time):
+def _handle_wall_avoidance(parsed, now, avoiding_wall, safe_since):
     """
-    Drive motors based on ultrasonic parsed message.
-    Returns True if a wall action was taken.
-    Prevents rapid repeated turns with 2-second debounce.
+    Simpler wall avoidance: Stop and turn until safe for 3 seconds, then resume.
+    
+    Returns: (avoiding_wall, safe_since) — updated state flags
     """
     if parsed is None or parsed.get('type') != 'ultrasonic':
-        return False
+        return avoiding_wall, safe_since
 
     status = parsed.get('status')
 
-    if status == 'safe':
-        motors.forward()
-        return False
-
     if status == 'error':
-        # One sensor failed — slow down but keep going
-        d1 = parsed.get('d1')
-        d2 = parsed.get('d2')
-        print(f"[Auto] ultrasonic error d1={d1} d2={d2} — slowing")
+        # Sensor error — slow down but keep going
+        print(f"[Auto] ultrasonic error, slowing")
         motors.forward(speed=30)
-        return False
+        return avoiding_wall, safe_since
 
-    if status == 'ok':
+    if status in ('safe', 'ok'):
         dist = parsed.get('distance', 100)
-        wall = parsed.get('wall', False)
         
-        # Only turn if close AND haven't turned recently (2s debounce)
-        if (wall or dist < 15) and (now - last_turn_time >= 2.0):
-            print(f"[Auto] wall at {dist:.1f}cm — turning left")
-            motors.turn_left_angle(20)  # Smaller turn (20° instead of 30°)
-            return True
+        # WALL DETECTED: Stop and turn
+        if dist < 15:
+            if not avoiding_wall:
+                print(f"[Auto] WALL DETECTED at {dist:.1f}cm — STOP and TURN")
+                avoiding_wall = True
+                safe_since = 0
+            motors.stop()
+            motors.left(speed=40)  # Gentle left turn to find safe path
+            return avoiding_wall, safe_since
+        
+        # SAFE DISTANCE: Check if we've been safe long enough
+        if avoiding_wall:
+            # Still avoiding, waiting to confirm safe
+            if dist >= 20:  # Need 20cm+ to be sure it's safe
+                if safe_since == 0:
+                    # First time seeing safe distance
+                    safe_since = now
+                    print(f"[Auto] Distance safe at {dist:.1f}cm — waiting 3 sec to confirm...")
+                elif (now - safe_since) >= 3.0:
+                    # Been safe for 3 seconds, resume motion
+                    print(f"[Auto] Safe for 3 sec — RESUME FORWARD")
+                    avoiding_wall = False
+                    safe_since = 0
+                    motors.forward()
+                else:
+                    # Still counting down safety timer
+                    remaining = 3.0 - (now - safe_since)
+                    print(f"[Auto] Waiting... {remaining:.1f}s remaining (distance: {dist:.1f}cm)")
+                    motors.stop()
+            else:
+                # Dropped below 20cm again, reset timer
+                print(f"[Auto] Distance dropped to {dist:.1f}cm — resetting safety timer")
+                safe_since = 0
+                motors.stop()
+                motors.left(speed=40)
         else:
-            motors.forward()  # Always move forward unless turning
-            return False
+            # Not avoiding, path is clear
+            motors.forward()
+        
+        return avoiding_wall, safe_since
 
-    return False
+    # Default safe behavior
+    motors.forward()
+    return avoiding_wall, safe_since
 
 
 def _loop():
     print("[Auto] loop started")
     last_save = 0.0
     last_motor_cmd = 0.0  # Debounce motor commands to 1 per second
-    last_turn_time = 0.0  # Debounce wall turns to once every 2 seconds
-    turning_until = 0.0   # Timestamp when turn finishes
+    avoiding_wall = False  # Currently in wall avoidance
+    safe_since = 0.0       # When we last detected "safe" distance
 
     while state['running']:
         if state['mode'] != 'autonomous':
@@ -138,15 +165,7 @@ def _loop():
             # Debounce motor commands to prevent rapid stuttering
             now = time.time()
             if now - last_motor_cmd >= 1.0:  # Only update motors once per second
-                # If currently turning, don't override until turn finishes
-                if now < turning_until:
-                    # Still turning, keep current motor state
-                    pass
-                else:
-                    # Turn finished or not turning, handle wall avoidance
-                    if _handle_wall_avoidance(parsed, now, last_turn_time):
-                        last_turn_time = now
-                        turning_until = now + 1.5  # Stay in turn for 1.5 seconds
+                avoiding_wall, safe_since = _handle_wall_avoidance(parsed, now, avoiding_wall, safe_since)
                 last_motor_cmd = now
 
             # Log moisture threshold triggers immediately
