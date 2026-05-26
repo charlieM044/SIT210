@@ -107,11 +107,10 @@ def _handle_wall_avoidance(parsed, now, last_turn_time):
         # Only turn if close AND haven't turned recently (2s debounce)
         if (wall or dist < 15) and (now - last_turn_time >= 2.0):
             print(f"[Auto] wall at {dist:.1f}cm — turning left")
-            motors.turn_left_angle(30)  # Smaller turn (30° instead of 45°)
-            last_turn_time = now
+            motors.turn_left_angle(20)  # Smaller turn (20° instead of 30°)
             return True
         else:
-            motors.forward()
+            motors.forward()  # Always move forward unless turning
             return False
 
     return False
@@ -122,6 +121,7 @@ def _loop():
     last_save = 0.0
     last_motor_cmd = 0.0  # Debounce motor commands to 1 per second
     last_turn_time = 0.0  # Debounce wall turns to once every 2 seconds
+    turning_until = 0.0   # Timestamp when turn finishes
 
     while state['running']:
         if state['mode'] != 'autonomous':
@@ -138,8 +138,15 @@ def _loop():
             # Debounce motor commands to prevent rapid stuttering
             now = time.time()
             if now - last_motor_cmd >= 1.0:  # Only update motors once per second
-                if _handle_wall_avoidance(parsed, now, last_turn_time):
-                    last_turn_time = now  # Update turn timer if turn happened
+                # If currently turning, don't override until turn finishes
+                if now < turning_until:
+                    # Still turning, keep current motor state
+                    pass
+                else:
+                    # Turn finished or not turning, handle wall avoidance
+                    if _handle_wall_avoidance(parsed, now, last_turn_time):
+                        last_turn_time = now
+                        turning_until = now + 1.5  # Stay in turn for 1.5 seconds
                 last_motor_cmd = now
 
             # Log moisture threshold triggers immediately
