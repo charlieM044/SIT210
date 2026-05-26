@@ -590,7 +590,23 @@
   }
 
   load();
-  setInterval(load, 10000);
+  setInterval(load, 2000);  // Refresh every 2 seconds for responsive display
+  
+  // Fetch latest reading even faster (every 500ms) for live display
+  setInterval(async () => {
+    try {
+      const r = await fetch('/api/latest-reading');
+      const reading = await r.json();
+      if (reading && reading.moisture !== null) {
+        const color = reading.moisture >= 80 ? 'var(--danger)' : reading.moisture >= 60 ? 'var(--warn)' : 'var(--ok)';
+        document.getElementById('bigMoisture').innerHTML = `${Number(reading.moisture).toFixed(1)}<span style="font-size:14px;color:var(--dim)"> %</span>`;
+        document.getElementById('bigMoisture').style.color = color;
+        const fill = document.getElementById('mbarFill');
+        fill.style.width = Number(reading.moisture) + '%';
+        fill.style.background = color;
+      }
+    } catch(e) {}
+  }, 500);  // Update live display every 500ms
 </script>
 </body>
 </html>

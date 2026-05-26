@@ -46,7 +46,7 @@ def status():
     })
 
 # ── Generic GET proxy for data endpoints ──────────────────────────────────────
-PROXIED_GET = {'readings', 'stats', 'critical', 'storage', 'mode'}
+PROXIED_GET = {'readings', 'stats', 'critical', 'storage', 'mode', 'latest-reading'}
 
 @app.route('/api/<endpoint>')
 def proxy_get(endpoint):

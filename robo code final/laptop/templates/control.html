@@ -201,6 +201,28 @@
 
         </div>
 
+        <!-- Live sensor data -->
+        <div class="card" style="margin-top: 20px;">
+            <h2>📊 Live Sensor Data</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                <div class="status-box">
+                    <div style="font-size: 0.9em; color: #999;">Moisture</div>
+                    <div id="liveMoisture" style="font-size: 2em; font-weight: bold; color: #667eea;">—</div>
+                    <div style="font-size: 0.8em; color: #ccc;" id="moistureTime">no data</div>
+                </div>
+                <div class="status-box">
+                    <div style="font-size: 0.9em; color: #999;">GPS Status</div>
+                    <div id="liveGPS" style="font-size: 1.2em; font-weight: bold; color: #f44336;">NO FIX</div>
+                    <div style="font-size: 0.8em; color: #ccc;" id="gpsCoords">—</div>
+                </div>
+                <div class="status-box">
+                    <div style="font-size: 0.9em; color: #999;">Wall Distance</div>
+                    <div id="liveWall" style="font-size: 1.5em; font-weight: bold; color: #4caf50;">—</div>
+                    <div style="font-size: 0.8em; color: #ccc;">cm</div>
+                </div>
+            </div>
+        </div>
+
         <a href="/" class="back-btn">← Back to Dashboard</a>
     </div>
 
@@ -225,6 +247,30 @@
                 badge.style.color = '#e65100';
             }
         }
+
+        // Live sensor updates every 500ms
+        setInterval(async () => {
+            try {
+                const r = await fetch('/api/latest-reading');
+                const reading = await r.json();
+                if (reading && reading.moisture !== null) {
+                    const moisture = Number(reading.moisture).toFixed(1);
+                    const color = moisture >= 80 ? '#f44336' : moisture >= 60 ? '#ff9800' : '#4caf50';
+                    document.getElementById('liveMoisture').textContent = moisture + '%';
+                    document.getElementById('liveMoisture').style.color = color;
+                    
+                    const ts = reading.timestamp ? reading.timestamp.substring(11, 19) : reading.time || '';
+                    document.getElementById('moistureTime').textContent = ts;
+                    
+                    if (reading.gps_lat && reading.gps_lng) {
+                        document.getElementById('liveGPS').textContent = '✓ FIXED';
+                        document.getElementById('liveGPS').style.color = '#4caf50';
+                        document.getElementById('gpsCoords').textContent = 
+                            Number(reading.gps_lat).toFixed(4) + ', ' + Number(reading.gps_lng).toFixed(4);
+                    }
+                }
+            } catch(e) {}
+        }, 500);
 
         async function sendRobotCommand(commandName) {
             try {

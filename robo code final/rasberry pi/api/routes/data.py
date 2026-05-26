@@ -31,6 +31,15 @@ def get_readings():
     return jsonify(readings)
 
 
+@data_bp.route('/api/latest-reading')
+def get_latest_reading():
+    """Return just the most recent sensor reading (fast, for live updates)."""
+    readings = storage.get_all_readings()
+    if readings:
+        return jsonify(readings[-1])  # Most recent is last
+    return jsonify(None)
+
+
 @data_bp.route('/api/stats')
 def get_stats():
     stats  = storage.get_moisture_stats() or {}
