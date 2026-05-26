@@ -1,244 +1,472 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robot Map - Location Tracking</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        
-        header {
-            color: white;
-            margin-bottom: 30px;
-        }
-        
-        header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        
-        .map-container {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-        
-        #map {
-            width: 100%;
-            height: 500px;
-            background: #f5f5f5;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #999;
-            border: 2px dashed #ddd;
-        }
-        
-        .controls {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .btn {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: bold;
-        }
-        
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: scale(1.05);
-        }
-        
-        .btn-secondary {
-            background: #764ba2;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #63408c;
-            transform: scale(1.05);
-        }
-        
-        .info-panel {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        .info-panel h2 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-        
-        .info-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .info-item:last-child {
-            border-bottom: none;
-        }
-        
-        .info-label {
-            font-weight: bold;
-            color: #666;
-        }
-        
-        .info-value {
-            color: #333;
-        }
-        
-        .legend {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDRX-1 // GPS Map</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <style>
+    :root {
+      --bg:      #0a0c0f;
+      --surface: #111418;
+      --border:  #1e2329;
+      --muted:   #2a3040;
+      --text:    #c8d0dc;
+      --dim:     #5a6478;
+      --accent:  #00e5ff;
+      --warn:    #ffb300;
+      --danger:  #ff3d57;
+      --ok:      #00e676;
+      --mono:    'Space Mono', monospace;
+      --sans:    'DM Sans', sans-serif;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 56px 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 200;
+    }
+
+    .logo {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    nav a {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 4px;
+      transition: all .2s;
+    }
+
+    nav { display:flex; gap:2px; }
+    nav a:hover, nav a.active { color: var(--accent); background: rgba(0,229,255,.07); }
+
+    /* ── MAP LAYOUT ── */
+    .map-layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+    }
+
+    /* Leaflet dark override */
+    .leaflet-tile { filter: brightness(.7) saturate(.6) hue-rotate(180deg) invert(1); }
+    .leaflet-container { background: #0d1117; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-head {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .12em;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--muted) transparent;
+    }
+
+    /* ── INFO ROWS ── */
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 6px;
+      border-bottom: 1px solid rgba(30,35,41,.6);
+      font-size: 13px;
+    }
+
+    .info-key {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .info-val {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+    }
+
+    /* ── READING CARDS ── */
+    .reading-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color .2s;
+    }
+
+    .reading-card:hover { border-color: var(--accent); }
+
+    .reading-card.critical { border-left: 3px solid var(--danger); }
+    .reading-card.moderate { border-left: 3px solid var(--warn); }
+    .reading-card.minor    { border-left: 3px solid var(--ok); }
+
+    .rc-top {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .rc-moisture {
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .rc-sev {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 3px 7px;
+      border-radius: 3px;
+    }
+
+    .sev-critical { background: rgba(255,61,87,.15); color: var(--danger); }
+    .sev-moderate { background: rgba(255,179,0,.12); color: var(--warn); }
+    .sev-minor    { background: rgba(0,230,118,.1);  color: var(--ok); }
+
+    .rc-coords {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+    }
+
+    .rc-time {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 4px;
+    }
+
+    /* ── LEGEND ── */
+    .legend {
+      padding: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .legend-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .1em;
+      color: var(--dim);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--dim);
+    }
+
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── STAT STRIP ── */
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-top: 1px solid var(--border);
+    }
+
+    .strip-cell {
+      background: var(--surface);
+      padding: 10px 12px;
+      text-align: center;
+    }
+
+    .strip-val {
+      font-family: var(--mono);
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .strip-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--dim);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .icon-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .08em;
+      padding: 5px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--dim);
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .no-data {
+      text-align: center;
+      padding: 40px 20px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--dim);
+      letter-spacing: .08em;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🗺️ Robot Location Map</h1>
-            <p style="color: rgba(255,255,255,0.9);">Real-time position tracking and navigation</p>
-        </header>
-        
-        <div class="controls">
-            <a href="/" class="btn btn-secondary">← Back</a>
-            <button class="btn btn-primary" onclick="centerMap()">📍 Center</button>
-            <button class="btn btn-primary" onclick="zoomIn()">🔍+</button>
-            <button class="btn btn-primary" onclick="zoomOut()">🔍-</button>
-            <button class="btn btn-secondary" onclick="loadRouteData()">🔄 Refresh</button>
-        </div>
-        
-        <div class="map-container">
-            <div id="map">
-                <p>Map visualization will appear here<br>(Integration with mapping service needed)</p>
-            </div>
-        </div>
-        
-        <div class="info-panel">
-            <h2>Current Position</h2>
-            <div class="info-item">
-                <span class="info-label">Latitude:</span>
-                <span class="info-value" id="latitude">--</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Longitude:</span>
-                <span class="info-value" id="longitude">--</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Heading:</span>
-                <span class="info-value" id="heading">--</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Speed:</span>
-                <span class="info-value" id="speed">--</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Distance Traveled:</span>
-                <span class="info-value" id="distance">--</span>
-            </div>
-            
-            <div class="legend">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #667eea;"></div>
-                    <span>Current Position</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #4caf50;"></div>
-                    <span>Completed Path</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #ff9800;"></div>
-                    <span>Planned Route</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #f44336;"></div>
-                    <span>Obstacle</span>
-                </div>
-            </div>
-        </div>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    MDRX-1 // GPS MAP
+  </div>
+  <nav>
+    <a href="/">DASHBOARD</a>
+    <a href="/map" class="active">MAP</a>
+    <a href="/report">REPORT</a>
+    <a href="/control">CONTROL</a>
+  </nav>
+  <button class="icon-btn" onclick="loadReadings()">↺ REFRESH</button>
+</div>
+
+<div class="map-layout">
+  <div id="map"></div>
+
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <div class="sidebar-title">Readings — <span id="countLabel">0</span> points</div>
     </div>
-    
-    <script>
-        function centerMap() {
-            alert('Map centered on robot position');
-            loadRouteData();
-        }
-        
-        function zoomIn() {
-            alert('Zooming in...');
-        }
-        
-        function zoomOut() {
-            alert('Zooming out...');
-        }
-        
-        async function loadRouteData() {
-            try {
-                const response = await fetch('/api/readings');
-                if (response.ok) {
-                    const data = await response.json();
-                    // Parse position data if available
-                    document.getElementById('latitude').textContent = '37.7749';
-                    document.getElementById('longitude').textContent = '-122.4194';
-                    document.getElementById('heading').textContent = '45°';
-                    document.getElementById('speed').textContent = '1.2 m/s';
-                    document.getElementById('distance').textContent = '125.4 m';
-                }
-            } catch (e) {
-                console.error('Error loading route data:', e);
-            }
-        }
-        
-        window.addEventListener('load', loadRouteData);
-    </script>
+
+    <div class="sidebar-body" id="cardList">
+      <div class="no-data">LOADING…</div>
+    </div>
+
+    <div class="stat-strip">
+      <div class="strip-cell">
+        <div class="strip-val" id="stripTotal">—</div>
+        <div class="strip-label">Total</div>
+      </div>
+      <div class="strip-cell">
+        <div class="strip-val" id="stripCrit" style="color:var(--danger)">—</div>
+        <div class="strip-label">Critical</div>
+      </div>
+      <div class="strip-cell">
+        <div class="strip-val" id="stripAvg">—</div>
+        <div class="strip-label">Avg %</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-title">Legend</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>Critical (&gt;80%)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>Moderate (60–80%)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ok)"></div>Minor (&lt;60%)</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Init Leaflet map
+  const map = L.map('map', { zoomControl: false });
+  L.control.zoom({ position: 'bottomright' }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 20
+  }).addTo(map);
+
+  map.setView([-37.81, 144.96], 17); // default; overridden by data
+
+  const markers = [];
+  let polyline = null;
+
+  function markerColor(sev) {
+    const s = (sev || '').toLowerCase();
+    if (s === 'critical') return '#ff3d57';
+    if (s === 'moderate') return '#ffb300';
+    return '#00e676';
+  }
+
+  function makeIcon(color) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="
+        width:14px;height:14px;
+        border-radius:50%;
+        background:${color};
+        border:2px solid rgba(255,255,255,.3);
+        box-shadow:0 0 8px ${color};
+      "></div>`,
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
+    });
+  }
+
+  function flyTo(lat, lng) {
+    map.flyTo([lat, lng], 19, { duration: 1 });
+  }
+
+  async function loadReadings() {
+    try {
+      const r = await fetch('/api/readings');
+      const readings = await r.json();
+
+      // Clear old markers
+      markers.forEach(m => map.removeLayer(m));
+      markers.length = 0;
+      if (polyline) { map.removeLayer(polyline); polyline = null; }
+
+      const valid = readings.filter(r => r.gps_lat != null && r.gps_lng != null);
+
+      document.getElementById('countLabel').textContent = valid.length;
+      document.getElementById('stripTotal').textContent = valid.length;
+      document.getElementById('stripCrit').textContent  = valid.filter(r => r.severity === 'Critical').length;
+
+      const moistures = valid.map(r => r.moisture).filter(v => v != null);
+      const avg = moistures.length ? (moistures.reduce((a,b)=>a+b,0)/moistures.length).toFixed(1) : '—';
+      document.getElementById('stripAvg').textContent = avg + (moistures.length ? '%' : '');
+
+      if (!valid.length) {
+        document.getElementById('cardList').innerHTML = '<div class="no-data">NO GPS FIXES YET<br><br>Waiting for readings with valid coordinates.</div>';
+        return;
+      }
+
+      // Plot markers
+      const latlngs = [];
+      valid.forEach(reading => {
+        const lat = reading.gps_lat;
+        const lng = reading.gps_lng;
+        const color = markerColor(reading.severity);
+        const m = L.marker([lat, lng], { icon: makeIcon(color) })
+          .bindPopup(`
+            <div style="font-family:monospace;font-size:12px;line-height:1.8">
+              <b style="color:${color}">${(reading.severity||'Minor').toUpperCase()}</b><br>
+              Moisture: <b>${reading.moisture != null ? Number(reading.moisture).toFixed(1)+'%' : '—'}</b><br>
+              Temp: ${reading.ir_temp != null ? Number(reading.ir_temp).toFixed(1)+'°C' : '—'}<br>
+              ${reading.timestamp || ''}<br>
+              <small>${lat.toFixed(5)}, ${lng.toFixed(5)}</small>
+            </div>
+          `)
+          .addTo(map);
+        markers.push(m);
+        latlngs.push([lat, lng]);
+      });
+
+      // Path line
+      if (latlngs.length > 1) {
+        polyline = L.polyline(latlngs, {
+          color: 'rgba(0,229,255,0.3)',
+          weight: 2,
+          dashArray: '4 6'
+        }).addTo(map);
+      }
+
+      // Fit map to all points
+      const bounds = L.latLngBounds(latlngs);
+      map.fitBounds(bounds, { padding: [40, 40] });
+
+      // Sidebar cards (newest first)
+      const cards = [...valid].reverse().slice(0, 100);
+      const cardList = document.getElementById('cardList');
+      cardList.innerHTML = cards.map((r, i) => {
+        const sev  = (r.severity || 'minor').toLowerCase();
+        const moist = r.moisture != null ? Number(r.moisture).toFixed(1) + '%' : '—';
+        const ts   = r.timestamp ? r.timestamp.substring(0,19) : (r.date && r.time ? r.date+' '+r.time : '—');
+        const color = markerColor(r.severity);
+        return `<div class="reading-card ${sev}" onclick="flyTo(${r.gps_lat},${r.gps_lng})">
+          <div class="rc-top">
+            <div class="rc-moisture" style="color:${color}">${moist}</div>
+            <div class="rc-sev sev-${sev}">${sev.toUpperCase()}</div>
+          </div>
+          <div class="rc-coords">${Number(r.gps_lat).toFixed(5)}, ${Number(r.gps_lng).toFixed(5)}</div>
+          <div class="rc-time">${ts}</div>
+        </div>`;
+      }).join('');
+
+    } catch(e) {
+      console.error('map load error:', e);
+      document.getElementById('cardList').innerHTML = '<div class="no-data">CONNECTION ERROR</div>';
+    }
+  }
+
+  loadReadings();
+  setInterval(loadReadings, 15000);
+</script>
 </body>
 </html>

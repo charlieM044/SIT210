@@ -37,9 +37,8 @@ void setup() {
   Serial.begin(9600);
   Serial1.begin(115200);
   initWallAvoidance();
-  pinMode(MOISTURE_PIN,  INPUT);
-  pinMode(INTERRUPT_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), moistureThresholdISR, FALLING);
+
+
   Serial.println("READY");
 
  

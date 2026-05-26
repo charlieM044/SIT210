@@ -41,7 +41,7 @@ class LocalDataManager:
                     date           TEXT,
                     time           TEXT,
                     moisture       REAL,
-                    ir_temp        REAL,
+                   
                     severity       TEXT,
                     image_filename TEXT
                 )
@@ -96,18 +96,18 @@ class LocalDataManager:
             print(f"[Storage] error: {e}")
             return False
 
-    def _write_db(self, gps_lat, gps_lng, moisture, ir_temp,
+    def _write_db(self, gps_lat, gps_lng, moisture, 
                   image_filename, severity):
         try:
             now = datetime.now()
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute(
                     '''INSERT INTO moisture_readings
-                       (gps_lat, gps_lng, date, time, moisture, ir_temp, severity, image_filename)
+                       (gps_lat, gps_lng, date, time, moisture,  severity, image_filename)
                        VALUES (?,?,?,?,?,?,?,?)''',
                     (gps_lat, gps_lng,
                      now.strftime('%Y-%m-%d'), now.strftime('%H:%M:%S'),
-                     moisture, ir_temp, severity, image_filename)
+                     moisture, severity, image_filename)
                 )
                 conn.commit()
         except Exception as e:
@@ -169,8 +169,8 @@ class LocalDataManager:
             'id': row[0], 'timestamp': row[1],
             'gps_lat': row[2], 'gps_lng': row[3],
             'date': row[4], 'time': row[5],
-            'moisture': row[6], 'ir_temp': row[7],
-            'severity': row[8], 'image': row[9],
+            'moisture': row[6],
+            'severity': row[7], 'image': row[8],
         }
 
     def _save_image(self, source, gps_lat, gps_lng):

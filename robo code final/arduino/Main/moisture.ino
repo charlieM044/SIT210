@@ -1,46 +1,36 @@
-
-
 // Pin definitions
-const int MOISTURE_PIN    = A0;   // analog moisture sensor
-const int INTERRUPT_PIN   = 2;    // must be 2 or 3 on Uno/Nano (FALLING edge)
 
-// Threshold values — tune these to your sensor
-const int DRY_THRESHOLD   = 600;  // above this = dry soil
-const int WET_THRESHOLD   = 300;  // below this = wet soil
+#include <Arduino.h> // Explicitly tells the Nano IoT to look at its pin maps
 
-// Volatile state (shared with ISR)
-volatile int           moistureValue      = 0;
-volatile bool          thresholdExceeded  = false;
-volatile unsigned long lastInterruptTime  = 0;
-const unsigned long    DEBOUNCE_DELAY     = 200;
+// Force the compiler to see A0 strictly as a local analog constant
+#undef MOISTURE_PIN
+
+const int MOISTURE_PIN    = A1;   // analog moisture sensor
+
+// Threshold values — tune these based on your open-air vs water readings
+const int DRY_THRESHOLD   = 200;  // above this = dry soil
+const int WET_THRESHOLD   = 600;  // below this = wet soil
+
+// Volatile state variables removed entirely
 
 void readMoisture() {
-    moistureValue = analogRead(MOISTURE_PIN);
-
-    // Send structured data to Pi (matches your WALL:/SAFE pattern)
+    // 1. Read the raw voltage value from the SIG pin
+    int moistureValue = analogRead(MOISTURE_PIN);
+    
+    // 2. Send structured data to the Pi
     Serial.print("MOISTURE:");
     Serial.print(moistureValue);
     Serial.print(",");
 
     if (moistureValue >= DRY_THRESHOLD) {
-        Serial.println("DRY");
-    } else if (moistureValue <= WET_THRESHOLD) {
         Serial.println("WET");
+    } else if (moistureValue <= WET_THRESHOLD) {
+        Serial.println("DRY");
     } else {
         Serial.println("MOIST");
     }
 
-    // Handle interrupt flag set by ISR
-    if (thresholdExceeded) {
-        thresholdExceeded = false;
-        Serial.println("MOISTURE:THRESHOLD_TRIGGERED");
-    }
+    // REMOVED: The thresholdExceeded if-statement is gone!
 }
 
-void moistureThresholdISR() {
-    unsigned long now = millis();
-    if (now - lastInterruptTime > DEBOUNCE_DELAY) {
-        thresholdExceeded = true;
-        lastInterruptTime = now;
-    }
-}
+// REMOVED: The moistureThresholdISR() function is completely gone!

@@ -1,376 +1,599 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robot Report - Data Analysis</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        header {
-            color: white;
-            margin-bottom: 30px;
-        }
-        
-        header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-        }
-        
-        .controls {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        
-        .btn {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: bold;
-            text-decoration: none;
-            display: inline-block;
-        }
-        
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: scale(1.05);
-        }
-        
-        .btn-secondary {
-            background: #764ba2;
-            color: white;
-        }
-        
-        .btn-secondary:hover {
-            background: #63408c;
-            transform: scale(1.05);
-        }
-        
-        .content {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        
-        .section {
-            margin-bottom: 30px;
-        }
-        
-        .section h2 {
-            color: #333;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
-        }
-        
-        .section-content {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-        }
-        
-        .stat-box {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-        
-        .stat-box h3 {
-            color: #667eea;
-            font-size: 0.9em;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-        
-        .stat-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #333;
-        }
-        
-        .chart-container {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
-            text-align: center;
-            color: #999;
-            min-height: 300px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        
-        table th {
-            background: #667eea;
-            color: white;
-            padding: 12px;
-            text-align: left;
-        }
-        
-        table td {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-        }
-        
-        table tr:hover {
-            background: #f5f5f5;
-        }
-        
-        .export-options {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
-        }
-        
-        .export-btn {
-            padding: 10px 15px;
-            border: 1px solid #667eea;
-            background: white;
-            color: #667eea;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: bold;
-        }
-        
-        .export-btn:hover {
-            background: #667eea;
-            color: white;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDRX-1 // Report</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #0a0c0f;
+      --surface: #111418;
+      --border:  #1e2329;
+      --muted:   #2a3040;
+      --text:    #c8d0dc;
+      --dim:     #5a6478;
+      --accent:  #00e5ff;
+      --warn:    #ffb300;
+      --danger:  #ff3d57;
+      --ok:      #00e676;
+      --mono:    'Space Mono', monospace;
+      --sans:    'DM Sans', sans-serif;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      height: 56px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    nav { display:flex; gap:2px; }
+    nav a {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 4px;
+      transition: all .2s;
+    }
+    nav a:hover, nav a.active { color: var(--accent); background: rgba(0,229,255,.07); }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .icon-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .08em;
+      padding: 7px 14px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--dim);
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .icon-btn.accent { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,.07); }
+
+    select.icon-btn { appearance: none; padding-right: 24px; }
+
+    main { padding: 28px; display: flex; flex-direction: column; gap: 20px; }
+
+    /* ── STAT ROW ── */
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--accent);
+      opacity: .35;
+    }
+
+    .stat.danger::before { background: var(--danger); }
+    .stat.warn::before   { background: var(--warn); }
+    .stat.ok::before     { background: var(--ok); }
+
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .12em;
+      color: var(--dim);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .stat-val {
+      font-family: var(--mono);
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .stat-val span { font-size: 13px; color: var(--dim); font-weight: 400; }
+
+    /* ── CHART PANEL ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .12em;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .chart-area {
+      padding: 20px;
+      position: relative;
+    }
+
+    canvas { display: block; width: 100% !important; }
+
+    /* ── TABLE ── */
+    .tbl-wrap { overflow-x: auto; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+    thead th {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      padding: 10px 18px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody tr { border-bottom: 1px solid rgba(30,35,41,.6); transition: background .15s; }
+    tbody tr:hover { background: rgba(255,255,255,.02); }
+    tbody td { padding: 10px 18px; color: var(--text); white-space: nowrap; }
+
+    .mono { font-family: var(--mono); font-size: 12px; }
+
+    .badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+
+    .badge-critical { background: rgba(255,61,87,.15);  color: var(--danger); border: 1px solid rgba(255,61,87,.25); }
+    .badge-moderate { background: rgba(255,179,0,.12);  color: var(--warn);   border: 1px solid rgba(255,179,0,.25); }
+    .badge-minor    { background: rgba(0,230,118,.10);  color: var(--ok);     border: 1px solid rgba(0,230,118,.2);  }
+
+    /* ── HEALTH TABLE ── */
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 20px;
+    }
+
+    .health-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .health-name { font-family: var(--mono); font-size: 11px; color: var(--text); }
+    .health-status { font-family: var(--mono); font-size: 11px; }
+
+    .ok-text   { color: var(--ok); }
+    .warn-text { color: var(--warn); }
+    .err-text  { color: var(--danger); }
+
+    /* ── EXPORT ── */
+    .export-row { display: flex; gap: 10px; padding: 20px; flex-wrap: wrap; }
+
+    .empty {
+      padding: 48px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--dim);
+      letter-spacing: .08em;
+    }
+
+    @media (max-width: 900px) {
+      .stat-row { grid-template-columns: repeat(2,1fr); }
+      .health-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>📋 Robot Performance Report</h1>
-            <p style="color: rgba(255,255,255,0.9);">Comprehensive data analysis and metrics</p>
-        </header>
-        
-        <div class="controls">
-            <a href="/" class="btn btn-secondary">← Back</a>
-            <button class="btn btn-primary" onclick="refreshReport()">🔄 Refresh</button>
-            <select id="timeRange" class="btn" style="background: white; color: #333; cursor: pointer;">
-                <option>Last 24 Hours</option>
-                <option>Last 7 Days</option>
-                <option>Last 30 Days</option>
-                <option>All Time</option>
-            </select>
-        </div>
-        
-        <div class="content">
-            <!-- Summary Section -->
-            <div class="section">
-                <h2>📊 Summary Statistics</h2>
-                <div class="section-content">
-                    <div class="stat-box">
-                        <h3>Total Runtime</h3>
-                        <div class="stat-value" id="totalRuntime">--</div>
-                    </div>
-                    <div class="stat-box">
-                        <h3>Total Distance</h3>
-                        <div class="stat-value" id="totalDistance">--</div>
-                    </div>
-                    <div class="stat-box">
-                        <h3>Commands Executed</h3>
-                        <div class="stat-value" id="commandsExecuted">--</div>
-                    </div>
-                    <div class="stat-box">
-                        <h3>Error Count</h3>
-                        <div class="stat-value" id="errorCount">--</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Performance Metrics -->
-            <div class="section">
-                <h2>⚙️ Performance Metrics</h2>
-                <div class="chart-container">
-                    <p>Performance charts will appear here<br>(Chart library integration needed)</p>
-                </div>
-            </div>
-            
-            <!-- System Health -->
-            <div class="section">
-                <h2>💚 System Health</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Component</th>
-                            <th>Status</th>
-                            <th>Last Check</th>
-                            <th>Health %</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Motor Control</td>
-                            <td><span style="color: #4caf50;">✓ OK</span></td>
-                            <td id="motorCheck">--</td>
-                            <td>100%</td>
-                        </tr>
-                        <tr>
-                            <td>Sensor Array</td>
-                            <td><span style="color: #4caf50;">✓ OK</span></td>
-                            <td id="sensorCheck">--</td>
-                            <td>100%</td>
-                        </tr>
-                        <tr>
-                            <td>Power System</td>
-                            <td><span style="color: #4caf50;">✓ OK</span></td>
-                            <td id="powerCheck">--</td>
-                            <td>100%</td>
-                        </tr>
-                        <tr>
-                            <td>Communication</td>
-                            <td><span style="color: #4caf50;">✓ OK</span></td>
-                            <td id="commCheck">--</td>
-                            <td>100%</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Recent Events -->
-            <div class="section">
-                <h2>📝 Recent Events</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Timestamp</th>
-                            <th>Event Type</th>
-                            <th>Description</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="eventsList">
-                        <tr>
-                            <td colspan="4" style="text-align: center; color: #999;">Loading...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <!-- Export Options -->
-            <div class="section">
-                <h2>📥 Export Report</h2>
-                <div class="export-options">
-                    <button class="export-btn" onclick="exportPDF()">📄 Export as PDF</button>
-                    <button class="export-btn" onclick="exportCSV()">📊 Export as CSV</button>
-                    <button class="export-btn" onclick="exportJSON()">💾 Export as JSON</button>
-                    <button class="export-btn" onclick="printReport()">🖨️ Print</button>
-                </div>
-            </div>
-        </div>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    MDRX-1 // REPORT
+  </div>
+  <nav>
+    <a href="/">DASHBOARD</a>
+    <a href="/map">MAP</a>
+    <a href="/report" class="active">REPORT</a>
+    <a href="/control">CONTROL</a>
+  </nav>
+  <button class="icon-btn" onclick="load()">↺ REFRESH</button>
+</div>
+
+<div class="toolbar">
+  <button class="icon-btn accent" onclick="exportCSV()">↓ CSV</button>
+  <button class="icon-btn accent" onclick="exportJSON()">↓ JSON</button>
+  <button class="icon-btn" onclick="window.print()">⎙ PRINT</button>
+</div>
+
+<main>
+
+  <!-- Stats -->
+  <div class="stat-row">
+    <div class="stat">
+      <div class="stat-label">Total Readings</div>
+      <div class="stat-val" id="sTotal">—</div>
     </div>
-    
-    <script>
-        function refreshReport() {
-            loadReportData();
-        }
-        
-        async function loadReportData() {
-            try {
-                // Load stats
-                const statsResponse = await fetch('/api/stats');
-                if (statsResponse.ok) {
-                    const stats = await statsResponse.json();
-                    document.getElementById('totalRuntime').textContent = stats.uptime || '--';
-                }
-                
-                // Load commands
-                const commandsResponse = await fetch('/api/commands');
-                if (commandsResponse.ok) {
-                    const commands = await commandsResponse.json();
-                    document.getElementById('commandsExecuted').textContent = commands.length || '0';
-                }
-                
-                // Load readings for events
-                const readingsResponse = await fetch('/api/readings');
-                if (readingsResponse.ok) {
-                    const readings = await readingsResponse.json();
-                    const eventsList = document.getElementById('eventsList');
-                    if (readings.length > 0) {
-                        const events = readings.slice(0, 5).map(r => 
-                            `<tr>
-                                <td>${new Date().toLocaleTimeString()}</td>
-                                <td>Sensor Reading</td>
-                                <td>${r}</td>
-                                <td><span style="color: #4caf50;">✓</span></td>
-                            </tr>`
-                        ).join('');
-                        eventsList.innerHTML = events;
-                    }
-                }
-                
-                // Set timestamps
-                const now = new Date().toLocaleTimeString();
-                document.getElementById('motorCheck').textContent = now;
-                document.getElementById('sensorCheck').textContent = now;
-                document.getElementById('powerCheck').textContent = now;
-                document.getElementById('commCheck').textContent = now;
-                
-                // Set other metrics
-                document.getElementById('totalDistance').textContent = '125.4 m';
-                document.getElementById('errorCount').textContent = '0';
-                
-            } catch (e) {
-                console.error('Error loading report data:', e);
-            }
-        }
-        
-        function exportPDF() {
-            alert('Exporting report as PDF...');
-            // window.print() can be used for basic PDF export
-        }
-        
-        function exportCSV() {
-            alert('Exporting report as CSV...');
-        }
-        
-        function exportJSON() {
-            alert('Exporting report as JSON...');
-        }
-        
-        function printReport() {
-            window.print();
-        }
-        
-        window.addEventListener('load', loadReportData);
-    </script>
+    <div class="stat" id="sAvgCard">
+      <div class="stat-label">Avg Moisture</div>
+      <div class="stat-val" id="sAvg">—<span>%</span></div>
+    </div>
+    <div class="stat danger" id="sCritCard">
+      <div class="stat-label">Critical</div>
+      <div class="stat-val" id="sCrit" style="color:var(--danger)">—</div>
+    </div>
+    <div class="stat warn">
+      <div class="stat-label">Moderate</div>
+      <div class="stat-val" id="sMod" style="color:var(--warn)">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Uptime</div>
+      <div class="stat-val" id="sUptime" style="font-size:16px">—</div>
+    </div>
+  </div>
+
+  <!-- Moisture Chart -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">Moisture Over Time</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--dim)" id="chartLabel">—</span>
+    </div>
+    <div class="chart-area" style="height:240px">
+      <canvas id="moistureChart"></canvas>
+    </div>
+  </div>
+
+  <!-- System Health -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">System Health</span>
+      <span class="panel-title" id="healthTime" style="font-size:10px">—</span>
+    </div>
+    <div class="health-grid" id="healthGrid">
+      <div class="health-row"><span class="health-name">LOADING…</span></div>
+    </div>
+  </div>
+
+  <!-- All readings table -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">All Readings</span>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--dim)" id="tableCount">— rows</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Timestamp</th>
+            <th>GPS Lat</th>
+            <th>GPS Lng</th>
+            <th>Moisture</th>
+            <th>IR Temp</th>
+            <th>Severity</th>
+          </tr>
+        </thead>
+        <tbody id="allTbody">
+          <tr><td colspan="7"><div class="empty">LOADING…</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  let allReadings = [];
+
+  function fmtUptime(s) {
+    if (!s) return '—';
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return `${h}h ${m}m`;
+  }
+
+  function moistureColor(v) {
+    if (v >= 80) return '#ff3d57';
+    if (v >= 60) return '#ffb300';
+    return '#00e676';
+  }
+
+  function severityBadge(sev) {
+    const s = (sev || 'minor').toLowerCase();
+    return `<span class="badge badge-${s}">${s.toUpperCase()}</span>`;
+  }
+
+  // ── Mini canvas chart ──────────────────────────────────────────────────────
+  function drawChart(readings) {
+    const canvas = document.getElementById('moistureChart');
+    const ctx    = canvas.getContext('2d');
+    const W = canvas.parentElement.clientWidth - 40;
+    const H = 200;
+    canvas.width  = W;
+    canvas.height = H;
+
+    // Sample up to 80 points evenly
+    const pts = [];
+    const step = Math.max(1, Math.floor(readings.length / 80));
+    for (let i = 0; i < readings.length; i += step) {
+      const r = readings[i];
+      if (r.moisture != null) pts.push({ t: r.timestamp || r.date, v: r.moisture });
+    }
+
+    if (!pts.length) return;
+
+    const PAD = { t: 10, b: 30, l: 40, r: 10 };
+    const W2 = W - PAD.l - PAD.r;
+    const H2 = H - PAD.t - PAD.b;
+    const maxV = Math.max(100, ...pts.map(p => p.v));
+
+    const x = (i) => PAD.l + (i / (pts.length - 1)) * W2;
+    const y = (v) => PAD.t + H2 - (v / maxV) * H2;
+
+    // Grid lines
+    ctx.strokeStyle = '#1e2329';
+    ctx.lineWidth = 1;
+    [0, 25, 50, 60, 80, 100].forEach(pct => {
+      const yy = y(pct);
+      ctx.beginPath();
+      ctx.moveTo(PAD.l, yy);
+      ctx.lineTo(PAD.l + W2, yy);
+      ctx.stroke();
+      ctx.fillStyle = '#5a6478';
+      ctx.font = '9px Space Mono, monospace';
+      ctx.fillText(pct + '%', 2, yy + 3);
+    });
+
+    // Threshold lines
+    const drawThreshold = (pct, color, label) => {
+      const yy = y(pct);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath();
+      ctx.moveTo(PAD.l, yy);
+      ctx.lineTo(PAD.l + W2, yy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    };
+    drawThreshold(80, 'rgba(255,61,87,.5)', 'CRITICAL');
+    drawThreshold(60, 'rgba(255,179,0,.4)', 'MODERATE');
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, PAD.t, 0, PAD.t + H2);
+    grad.addColorStop(0,   'rgba(0,229,255,.25)');
+    grad.addColorStop(0.6, 'rgba(0,229,255,.05)');
+    grad.addColorStop(1,   'rgba(0,229,255,0)');
+
+    ctx.beginPath();
+    ctx.moveTo(x(0), y(pts[0].v));
+    pts.forEach((p, i) => ctx.lineTo(x(i), y(p.v)));
+    ctx.lineTo(x(pts.length - 1), PAD.t + H2);
+    ctx.lineTo(x(0), PAD.t + H2);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = 'round';
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(x(i), y(p.v)) : ctx.lineTo(x(i), y(p.v)));
+    ctx.stroke();
+
+    // Dots for critical points
+    pts.forEach((p, i) => {
+      if (p.v >= 80) {
+        ctx.beginPath();
+        ctx.arc(x(i), y(p.v), 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff3d57';
+        ctx.fill();
+      }
+    });
+
+    document.getElementById('chartLabel').textContent = `${pts.length} SAMPLES SHOWN`;
+  }
+
+  // ── Health ─────────────────────────────────────────────────────────────────
+  async function loadHealth() {
+    // We don't have a /api/health endpoint yet — show what we can derive
+    try {
+      const r = await fetch('/api/status');
+      const d = await r.json();
+      const now = new Date().toLocaleTimeString();
+      document.getElementById('healthTime').textContent = 'CHECKED ' + now;
+
+      const items = [
+        { name: 'PI SERVER',   ok: d.connected, detail: d.connected ? 'CONNECTED' : 'UNREACHABLE' },
+        { name: 'API UPTIME',  ok: true,        detail: fmtUptime(d.uptime_s) },
+        { name: 'MODE',        ok: true,        detail: (d.mode || '—').toUpperCase() },
+        { name: 'DATA BUFFER', ok: true,        detail: allReadings.length + ' READINGS' },
+      ];
+
+      document.getElementById('healthGrid').innerHTML = items.map(it => `
+        <div class="health-row">
+          <span class="health-name">${it.name}</span>
+          <span class="health-status ${it.ok ? 'ok-text' : 'err-text'}">
+            ${it.ok ? '● ' : '✗ '} ${it.detail}
+          </span>
+        </div>
+      `).join('');
+    } catch {
+      document.getElementById('healthGrid').innerHTML =
+        '<div class="health-row"><span class="health-name err-text">CANNOT REACH PI</span></div>';
+    }
+  }
+
+  // ── Main load ──────────────────────────────────────────────────────────────
+  async function load() {
+    // Stats
+    try {
+      const r = await fetch('/api/stats');
+      const d = await r.json();
+      document.getElementById('sTotal').textContent  = d.count ?? '—';
+      document.getElementById('sAvg').innerHTML      = `${Number(d.average||0).toFixed(1)}<span>%</span>`;
+      document.getElementById('sCrit').textContent   = d.critical_count ?? '—';
+      document.getElementById('sUptime').textContent = fmtUptime(d.uptime);
+
+      const mods = (allReadings.filter(r => r.severity === 'Moderate')).length;
+      document.getElementById('sMod').textContent = mods;
+    } catch {}
+
+    // Readings
+    try {
+      const r = await fetch('/api/readings');
+      allReadings = await r.json();
+
+      document.getElementById('tableCount').textContent = allReadings.length + ' rows';
+
+      // Moderate count
+      document.getElementById('sMod').textContent = allReadings.filter(r => r.severity === 'Moderate').length;
+
+      // Table — show all, newest first
+      const rows = [...allReadings].reverse();
+      const tbody = document.getElementById('allTbody');
+
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty">NO READINGS YET</div></td></tr>';
+      } else {
+        tbody.innerHTML = rows.map((r, i) => {
+          const ts   = r.timestamp ? r.timestamp.substring(0,19) : (r.date && r.time ? r.date+' '+r.time : '—');
+          const lat  = r.gps_lat  != null ? Number(r.gps_lat).toFixed(5)  : '—';
+          const lng  = r.gps_lng  != null ? Number(r.gps_lng).toFixed(5)  : '—';
+          const mois = r.moisture != null ? Number(r.moisture).toFixed(1) + '%' : '—';
+          const temp = r.ir_temp  != null ? Number(r.ir_temp).toFixed(1)  + '°C' : '—';
+          const col  = r.moisture != null ? moistureColor(r.moisture) : 'inherit';
+          return `<tr>
+            <td class="mono" style="color:var(--dim)">${allReadings.length - i}</td>
+            <td class="mono">${ts}</td>
+            <td class="mono">${lat}</td>
+            <td class="mono">${lng}</td>
+            <td class="mono" style="color:${col}">${mois}</td>
+            <td class="mono">${temp}</td>
+            <td>${severityBadge(r.severity)}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      drawChart(allReadings);
+    } catch(e) { console.error('readings:', e); }
+
+    loadHealth();
+  }
+
+  // ── Export ─────────────────────────────────────────────────────────────────
+  function exportCSV() {
+    if (!allReadings.length) return alert('No data to export.');
+    const cols = ['timestamp','gps_lat','gps_lng','moisture','ir_temp','severity'];
+    const header = cols.join(',');
+    const body   = allReadings.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(',')).join('\n');
+    const blob   = new Blob([header + '\n' + body], { type: 'text/csv' });
+    const url    = URL.createObjectURL(blob);
+    const a      = document.createElement('a');
+    a.href = url;
+    a.download = `mdrx1_readings_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportJSON() {
+    if (!allReadings.length) return alert('No data to export.');
+    const blob = new Blob([JSON.stringify({
+      exported:       new Date().toISOString(),
+      total_readings: allReadings.length,
+      readings:       allReadings,
+    }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a   = document.createElement('a');
+    a.href = url;
+    a.download = `mdrx1_report_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  load();
+  setInterval(load, 15000);
+</script>
 </body>
 </html>
