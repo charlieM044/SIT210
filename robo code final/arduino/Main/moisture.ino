@@ -23,9 +23,9 @@ void readMoisture() {
     Serial.print(",");
 
     if (moistureValue >= DRY_THRESHOLD) {
-        Serial.println("WET");
-    } else if (moistureValue <= WET_THRESHOLD) {
         Serial.println("DRY");
+    } else if (moistureValue <= WET_THRESHOLD) {
+        Serial.println("WET");
     } else {
         Serial.println("MOIST");
     }

@@ -19,7 +19,11 @@
 TinyGPSPlus gps;
 
 void feedGPS() {
-  while (Serial1.available()) gps.encode(Serial1.read());
+  unsigned long start = millis();
+  // Prevent infinite loop - stop after 50ms of processing
+  while (Serial1.available() && (millis() - start < 50)) {
+    gps.encode(Serial1.read());
+  }
 }
 
 void sendGPS() {

@@ -33,8 +33,8 @@ def parse(line):
     Formats:
       'ULTRASONIC: SAFE'
       'ULTRASONIC: ERROR - Invalid Reading (d1: 36.2, d2: 0.0)'
+      'ULTRASONIC: WALL:d1,d2,angle'
       'MOISTURE:327,MOIST'
-      'MOISTURE:THRESHOLD_TRIGGERED'
       'GPS:NO_FIX'
       'GPS:lat,lng'
     """
@@ -55,13 +55,18 @@ def parse(line):
                 d1, d2 = None, None
             return {'type': 'ultrasonic', 'status': 'error',
                     'wall': False, 'd1': d1, 'd2': d2}
-        # Numeric reading  e.g. 'ULTRASONIC: 45.2'
-        try:
-            dist = float(body)
-            return {'type': 'ultrasonic', 'status': 'ok',
-                    'wall': dist < 20, 'distance': dist}
-        except ValueError:
-            pass
+        # WALL message: 'WALL:d1,d2,angle'
+        if body.startswith('WALL:'):
+            try:
+                parts = body[5:].split(',')
+                d1 = float(parts[0])
+                d2 = float(parts[1])
+                angle = float(parts[2])
+                return {'type': 'ultrasonic', 'status': 'ok',
+                        'wall': True, 'd1': d1, 'd2': d2, 'angle': angle,
+                        'distance': min(d1, d2)}
+            except Exception:
+                pass
 
     # ── Moisture ───────────────────────────────────────────────
     if line.startswith('MOISTURE:'):

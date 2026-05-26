@@ -26,7 +26,6 @@ _sensor_state = {
     'moisture': None,
     'moisture_raw': None,
     'moisture_label': None,
-    'ir_temp':  None,
     'ultrasonic_status': None,  # 'safe' | 'wall' | 'error'
     'ultrasonic_distance': None,
     'gps_status': None,         # 'ok' | 'no_fix'
@@ -38,6 +37,7 @@ def read_sensors():
     """
     Return latest sensor state dict, or None if no data yet.
     Populated by _process_parsed() as Arduino messages arrive.
+    Returns a deep copy to prevent race conditions.
     """
     with _sensor_lock:
         if _sensor_state['moisture'] is None:
@@ -143,6 +143,10 @@ def _loop():
                     print("[Auto] GPS: no fix yet")
                 else:
                     print(f"[Auto] GPS fix: {parsed.get('lat'):.5f}, {parsed.get('lng'):.5f}")
+        else:
+            # Log parse failures for debugging
+            if line and not line.startswith('READY'):
+                print(f"[Auto] parse failed: {line}")
 
         # ── Periodic sensor save ───────────────────────────────────────────────
         now = time.time()
@@ -175,7 +179,6 @@ def _loop():
                     gps_lat    = sensor['gps_lat'],
                     gps_lng    = sensor['gps_lng'],
                     moisture   = sensor['moisture'],
-                    ir_temp    = sensor.get('ir_temp'),
                     image_path = image_path,
                     severity   = severity,
                 )

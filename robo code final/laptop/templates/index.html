@@ -408,7 +408,6 @@
               <th>Timestamp</th>
               <th>GPS</th>
               <th>Moisture</th>
-              <th>IR Temp</th>
               <th>Severity</th>
             </tr>
           </thead>
@@ -567,12 +566,10 @@
           ? `${Number(r.gps_lat).toFixed(4)}, ${Number(r.gps_lng).toFixed(4)}`
           : '—';
         const moist = r.moisture != null ? Number(r.moisture).toFixed(1) + '%' : '—';
-        const temp  = r.ir_temp  != null ? Number(r.ir_temp).toFixed(1)  + '°C' : '—';
         return `<tr>
           <td class="mono">${ts}</td>
           <td class="mono">${gps}</td>
           <td class="mono" style="color:${r.moisture != null ? moistureColor(r.moisture) : 'inherit'}">${moist}</td>
-          <td class="mono">${temp}</td>
           <td>${severityBadge(r.severity)}</td>
         </tr>`;
       }).join('');

@@ -180,6 +180,10 @@ class CameraManager:
             print("[Camera] ✓ released")
         except Exception as e:
             print(f"[Camera] release error: {e}")
+        finally:
+            # Wait briefly for stream thread to finish
+            if self.stream_thread and self.stream_thread.is_alive():
+                self.stream_thread.join(timeout=2)
 
 
 # Module-level singleton

@@ -9,13 +9,15 @@ import requests
 import time
 import logging
 
+import os
+
 app = Flask(__name__)
 CORS(app)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-PI_SERVER = 'http://10.74.32.118:5000'
+PI_SERVER = os.environ.get('PI_SERVER', 'http://10.74.32.118:5000')
 
 # ── Connection cache (5 s) ─────────────────────────────────────────────────────
 _last_check = 0

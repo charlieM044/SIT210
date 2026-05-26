@@ -69,8 +69,8 @@ void updateWallAvoidance() {
  // 1. Fire and read Sensor 1 instantly
   float d1 = getDistance(TRIG_PIN1, ECHO_PIN1);
   
-  // 2. TIMING DELAY: Wait 30ms so Sensor 1's sound waves completely die out
-  delay(30); 
+  // 2. TIMING DELAY: Wait 15ms so Sensor 1's sound waves die out faster
+  delay(15);
   
   // 3. Fire and read Sensor 2 safely without crosstalk
   float d2 = getDistance(TRIG_PIN2, ECHO_PIN2);
@@ -85,7 +85,7 @@ void updateWallAvoidance() {
   }
 
   // Fixed floating point trigonometry calculation
-  wallAngle = atan((d2 - d1) / L) * (180.0 / 3.14159265);
+  wallAngle = atan((d2 - d1) / L) * (180.0 / M_PI);
   minDistance = min(d1, d2);
 
 

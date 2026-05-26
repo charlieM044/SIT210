@@ -90,17 +90,25 @@ class MotorController:
         print(f"[Motors] right {speed}%")
 
     def turn_left_angle(self, angle):
+        """Turn left by reducing left motor speed for the turn duration.
+        angle: degrees (0-90)
+        """
+        # Simple proportional turn: higher angle = more speed reduction
+        reduction = min(abs(angle) / 90.0 * self.max_speed, self.max_speed)
+        self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1, 
+                        max(self.current_speed - reduction, 0))
+        self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2, self.current_speed)
+        print(f"[Motors] auto-turn left {angle}°")
+
+    def turn_right_angle(self, angle):
+        """Turn right by reducing right motor speed for the turn duration.
+        angle: degrees (0-90)
+        """
+        # Simple proportional turn: higher angle = more speed reduction
         reduction = min(abs(angle) / 90.0 * self.max_speed, self.max_speed)
         self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1, self.current_speed)
         self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2,
                         max(self.current_speed - reduction, 0))
-        print(f"[Motors] auto-turn left {angle}°")
-
-    def turn_right_angle(self, angle):
-        reduction = min(abs(angle) / 90.0 * self.max_speed, self.max_speed)
-        self._set_motor(MOTOR1_IN1, MOTOR1_IN2, self.pwm1,
-                        max(self.current_speed - reduction, 0))
-        self._set_motor(MOTOR2_IN1, MOTOR2_IN2, self.pwm2, self.current_speed)
         print(f"[Motors] auto-turn right {angle}°")
 
     def stop(self):

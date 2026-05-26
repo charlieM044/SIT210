@@ -62,7 +62,7 @@ class LocalDataManager:
 
     # ── Write ──────────────────────────────────────────────────────────────────
     def add_moisture_reading(self, gps_lat, gps_lng, moisture,
-                             ir_temp=None, image_path=None, severity='Minor'):
+                             image_path=None, severity='Minor'):
         if not self._validate(gps_lat, gps_lng, moisture):
             return False
         try:
@@ -79,13 +79,12 @@ class LocalDataManager:
                 'date':      now.strftime('%Y-%m-%d'),
                 'time':      now.strftime('%H:%M:%S'),
                 'moisture':  moisture,
-                'ir_temp':   ir_temp,
                 'severity':  severity,
-                'image':     image_filename,
+                'image_filename': image_filename,
             }
             threading.Thread(
                 target=self._write_db,
-                args=(gps_lat, gps_lng, moisture, ir_temp, image_filename, severity),
+                args=(gps_lat, gps_lng, moisture, image_filename, severity),
                 daemon=True
             ).start()
             with self._lock:
@@ -96,15 +95,15 @@ class LocalDataManager:
             print(f"[Storage] error: {e}")
             return False
 
-    def _write_db(self, gps_lat, gps_lng, moisture, 
+    def _write_db(self, gps_lat, gps_lng, moisture,
                   image_filename, severity):
         try:
             now = datetime.now()
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute(
                     '''INSERT INTO moisture_readings
-                       (gps_lat, gps_lng, date, time, moisture,  severity, image_filename)
-                       VALUES (?,?,?,?,?,?,?,?)''',
+                       (gps_lat, gps_lng, date, time, moisture, severity, image_filename)
+                       VALUES (?,?,?,?,?,?,?)''',
                     (gps_lat, gps_lng,
                      now.strftime('%Y-%m-%d'), now.strftime('%H:%M:%S'),
                      moisture, severity, image_filename)
@@ -170,7 +169,7 @@ class LocalDataManager:
             'gps_lat': row[2], 'gps_lng': row[3],
             'date': row[4], 'time': row[5],
             'moisture': row[6],
-            'severity': row[7], 'image': row[8],
+            'severity': row[7], 'image_filename': row[8],
         }
 
     def _save_image(self, source, gps_lat, gps_lng):
