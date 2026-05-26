@@ -77,10 +77,11 @@ def _process_parsed(parsed):
             _sensor_state['gps_lng']    = parsed.get('lng')
 
 
-def _handle_wall_avoidance(parsed):
+def _handle_wall_avoidance(parsed, now, last_turn_time):
     """
     Drive motors based on ultrasonic parsed message.
     Returns True if a wall action was taken.
+    Prevents rapid repeated turns with 2-second debounce.
     """
     if parsed is None or parsed.get('type') != 'ultrasonic':
         return False
@@ -102,11 +103,12 @@ def _handle_wall_avoidance(parsed):
     if status == 'ok':
         dist = parsed.get('distance', 100)
         wall = parsed.get('wall', False)
-        if wall or dist < 20:
-            print(f"[Auto] wall at {dist:.1f}cm — turning")
-            motors.turn_left_angle(45)
-            time.sleep(0.5)
-            motors.forward()
+        
+        # Only turn if close AND haven't turned recently (2s debounce)
+        if (wall or dist < 15) and (now - last_turn_time >= 2.0):
+            print(f"[Auto] wall at {dist:.1f}cm — turning left")
+            motors.turn_left_angle(30)  # Smaller turn (30° instead of 45°)
+            last_turn_time = now
             return True
         else:
             motors.forward()
@@ -119,6 +121,7 @@ def _loop():
     print("[Auto] loop started")
     last_save = 0.0
     last_motor_cmd = 0.0  # Debounce motor commands to 1 per second
+    last_turn_time = 0.0  # Debounce wall turns to once every 2 seconds
 
     while state['running']:
         if state['mode'] != 'autonomous':
@@ -135,7 +138,8 @@ def _loop():
             # Debounce motor commands to prevent rapid stuttering
             now = time.time()
             if now - last_motor_cmd >= 1.0:  # Only update motors once per second
-                _handle_wall_avoidance(parsed)
+                if _handle_wall_avoidance(parsed, now, last_turn_time):
+                    last_turn_time = now  # Update turn timer if turn happened
                 last_motor_cmd = now
 
             # Log moisture threshold triggers immediately
