@@ -118,6 +118,7 @@ def _handle_wall_avoidance(parsed):
 def _loop():
     print("[Auto] loop started")
     last_save = 0.0
+    last_motor_cmd = 0.0  # Debounce motor commands to 1 per second
 
     while state['running']:
         if state['mode'] != 'autonomous':
@@ -130,7 +131,12 @@ def _loop():
 
         if parsed:
             _process_parsed(parsed)
-            _handle_wall_avoidance(parsed)
+            
+            # Debounce motor commands to prevent rapid stuttering
+            now = time.time()
+            if now - last_motor_cmd >= 1.0:  # Only update motors once per second
+                _handle_wall_avoidance(parsed)
+                last_motor_cmd = now
 
             # Log moisture threshold triggers immediately
             if (parsed.get('type') == 'moisture'
@@ -191,7 +197,7 @@ def _loop():
 
                 if severity == 'Critical':
                     motors.stop()
-                    time.sleep(2)
+                    time.sleep(1)  # Reduced from 2s to 1s to minimize stutter
                     if state['mode'] == 'autonomous':
                         motors.forward()
 
