@@ -7,6 +7,7 @@ import signal
 import sys
 import threading
 import time
+import logging
 from datetime import datetime
 
 from config import PI_HOST, PI_PORT
@@ -15,6 +16,17 @@ from hardware import camera, motors
 from saveData import storage
 from api.app import app
 from api import autonomous
+
+# Setup logging to file + console
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('robot_debug.log'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class RobotMain:
