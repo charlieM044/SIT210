@@ -117,7 +117,7 @@ def parse(line):
             parts = body.split(',')
             raw   = int(parts[0])
             label = parts[1].strip() if len(parts) > 1 else None
-            pct = round((1 - raw / 1023) * 100, 1)
+            pct = round((raw / 1023) * 100, 1)
             return {'type': 'moisture', 'status': 'ok',
                     'raw': raw, 'label': label, 'percent': pct,
                     'triggered': False}
