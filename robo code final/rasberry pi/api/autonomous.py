@@ -213,9 +213,19 @@ def _loop():
                         print(f"[Auto] image capture failed: {e}")
 
                 # Save regardless of GPS status — GPS can be null
+                state['latest_reading'] = {
+                    'moisture': sensor['moisture'],
+                    'moisture_label': sensor.get('moisture_label', ''),
+                    'severity': severity,
+                    'gps_lat': sensor.get('gps_lat'),
+                    'gps_lng': sensor.get('gps_lng'),
+                    'timestamp': datetime.now().isoformat() # ensure frontend has a timestamp
+                }
+
+                # Save to disk database in the background
                 storage.add_moisture_reading(
-                    gps_lat    = sensor.get('gps_lat'),  # May be None
-                    gps_lng    = sensor.get('gps_lng'),  # May be None
+                    gps_lat    = sensor.get('gps_lat'),  
+                    gps_lng    = sensor.get('gps_lng'),  
                     moisture   = sensor['moisture'],
                     image_path = image_path,
                     severity   = severity,
