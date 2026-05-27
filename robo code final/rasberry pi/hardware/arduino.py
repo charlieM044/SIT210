@@ -138,3 +138,12 @@ def parse(line):
             pass
  
     return None
+
+def clear_buffer():
+    """Instantly discard any stale messages in the serial queue."""
+    with _serial_lock:
+        try:
+            if arduino:
+                arduino.reset_input_buffer()
+        except Exception as e:
+            print(f"[Arduino] buffer clear error: {e}")

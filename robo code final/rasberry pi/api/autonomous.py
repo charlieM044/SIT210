@@ -8,7 +8,7 @@ import threading
 from config import SENSOR_SAVE_INTERVAL, MOISTURE_MODERATE
 from state import state
 from hardware import motors
-from hardware.arduino import read_line, parse
+from hardware.arduino import read_line, parse, clear_buffer
 from saveData import storage
 
 
@@ -151,22 +151,23 @@ def _loop():
     safe_since = 0.0       # When we last detected "safe" distance
 
     while state['running']:
-        if state['mode'] != 'autonomous':
-            time.sleep(0.1)
-            continue
-
-        # ── Read + parse Arduino message ───────────────────────────────────────
+        
+          # ── Read + parse Arduino message ───────────────────────────────────────
         line   = read_line()
         parsed = parse(line)
+        
+        
+     
 
         if parsed:
             _process_parsed(parsed)
+            if state['mode'] == 'autonomous':
             
-            # Debounce motor commands to prevent rapid stuttering
-            now = time.time()
-            if now - last_motor_cmd >= 1.0:  # Only update motors once per second
-                avoiding_wall, safe_since = _handle_wall_avoidance(parsed, now, avoiding_wall, safe_since)
-                last_motor_cmd = now
+                # Debounce motor commands to prevent rapid stuttering
+                now = time.time()
+                if now - last_motor_cmd >= 1.0:  # Only update motors once per second
+                    avoiding_wall, safe_since = _handle_wall_avoidance(parsed, now, avoiding_wall, safe_since)
+                    last_motor_cmd = now
 
             # Log moisture threshold triggers immediately
             if (parsed.get('type') == 'moisture'
@@ -225,12 +226,12 @@ def _loop():
                       f" ({sensor.get('moisture_label', '')}) "
                       f"severity={severity} gps={gps_str}")
 
-                if severity == 'Critical':
+                if severity == 'Critical' and state['mode'] == 'autonomous':
                     motors.stop()
-                    time.sleep(1)  # Reduced from 2s to 1s to minimize stutter
-                    if state['mode'] == 'autonomous':
-                        motors.forward()
-
+                    time.sleep(1)
+                    motors.forward()
+                    clear_buffer()  # Clear buffer to prevent old messages from triggering again
+                    print("[Auto] CRITICAL moisture level — stopping briefly and resuming")
             except Exception as e:
                 print(f"[Auto] sensor error: {e}")
 

@@ -32,13 +32,22 @@ def get_readings():
 
 
 @data_bp.route('/api/latest-reading')
-def get_latest_reading():
-    """Return just the most recent sensor reading (fast, for live updates)."""
-    readings = storage.get_all_readings()
-    if readings:
-        return jsonify(readings[-1])  # Most recent is last
-    return jsonify(None)
 
+def get_latest_reading():  
+    """Return just the most recent sensor reading (fast, for live updates)."""
+    # 2. Query the live sensor state instead of the slow storage buffer
+    live_sensor = read_sensors()
+    
+    if live_sensor:
+        # 3. Inject current timestamps so the frontend UI doesn't display a blank time
+        now = datetime.now()
+        live_sensor['timestamp'] = now.isoformat(sep=' ', timespec='seconds')
+        live_sensor['time']      = now.strftime('%H:%M:%S')
+        live_sensor['date']      = now.strftime('%Y-%m-%d')
+        
+        return jsonify(live_sensor)
+        
+    return jsonify(None)
 
 @data_bp.route('/api/stats')
 def get_stats():
