@@ -17,7 +17,7 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-PI_SERVER = os.environ.get('PI_SERVER', 'http://10.74.32.118:5000')
+PI_SERVER = os.environ.get('PI_SERVER', 'http://10.50.80.118:5000')
 
 # ── Connection cache (5 s) ─────────────────────────────────────────────────────
 _last_check = 0
@@ -46,7 +46,7 @@ def status():
     })
 
 # ── Generic GET proxy for data endpoints ──────────────────────────────────────
-PROXIED_GET = {'readings', 'stats', 'critical', 'storage', 'mode', 'latest-reading'}
+PROXIED_GET = {'readings', 'stats', 'critical', 'storage', 'mode', 'latest-reading', 'speed'}
 
 @app.route('/api/<endpoint>')
 def proxy_get(endpoint):
@@ -68,14 +68,17 @@ VALID_COMMANDS = {'forward', 'backward', 'left', 'right', 'stop'}
 @app.route('/api/control', methods=['POST'])
 @app.route('/api/control/<command>', methods=['POST'])
 def control(command=None):
+    body = request.json or {}
     if command is None:
-        command = (request.json or {}).get('command')
+        command = body.get('command')
     if command not in VALID_COMMANDS:
         return jsonify({'error': f'unknown command: {command}',
                         'valid': sorted(VALID_COMMANDS)}), 400
+    payload = {'command': command}
+    if 'speed' in body:
+        payload['speed'] = body['speed']
     try:
-        r = requests.post(f'{PI_SERVER}/api/control',
-                          json={'command': command}, timeout=2)
+        r = requests.post(f'{PI_SERVER}/api/control', json=payload, timeout=2)
         return jsonify(r.json()), r.status_code
     except Exception as e:
         log.error(f'control/{command}: {e}')

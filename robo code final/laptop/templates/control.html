@@ -307,7 +307,7 @@
             }
         }
         
-         function initSpeedSlider() {
+        async function initSpeedSlider() {
             try {
                 const res  = await fetch('/api/speed');
                 const data = await res.json();
@@ -364,13 +364,18 @@
                 const data = await r.json();
                 updateMode(data.mode);
                 updateStatus(
-                    data.mode === 'manual' ? ':) Manual control enabled' : ';] Autonomous mode active',
+                    data.mode === 'manual' ? '✅ Manual control enabled' : '🤖 Autonomous mode active',
                     true
                 );
             } catch (err) {
-                updateStatus('X Could not reach Pi', false);
+                updateStatus('✗ Could not reach Pi', false);
             }
+
+            try {
                 await initSpeedSlider();
+            } catch {
+                // non-fatal — slider stays at default 60%
+            }
         });
     </script>
 </body>
