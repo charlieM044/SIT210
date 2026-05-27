@@ -198,7 +198,7 @@
                         <span>⚡ Speed</span>
                         <span id="speed-label">60</span>%
                     </label>
-                    <input type="range" id="speed-slider" min="10" max="100" value="60" step="5"
+                    <input type="range" id="speed-slider" min="0" max="100" value="60" step="5"
                         style="width:100%;"
                         oninput="document.getElementById('speed-label').textContent = this.value">
                 </div>
@@ -270,7 +270,7 @@
                     const ts = reading.timestamp ? reading.timestamp.substring(11, 19) : reading.time || '';
                     document.getElementById('moistureTime').textContent = ts;
                     
-                    if (reading.gps_lat && reading.gps_lng) {
+                    if (reading.gps_lat != null && reading.gps_lng != null) {
                         document.getElementById('liveGPS').textContent = '✓ FIXED';
                         document.getElementById('liveGPS').style.color = '#4caf50';
                         document.getElementById('gpsCoords').textContent = 
@@ -311,9 +311,12 @@
             try {
                 const res  = await fetch('/api/speed');
                 const data = await res.json();
-                if (data.speed && data.speed > 0) {
-                    document.getElementById('speed-slider').value = data.speed;
-                    document.getElementById('speed-label').textContent  = data.speed;
+                if (data.speed !== null && data.speed !== undefined) {
+                    const speed = Number(data.speed);
+                    if (Number.isFinite(speed)) {
+                        document.getElementById('speed-slider').value = Math.max(0, Math.min(100, speed));
+                        document.getElementById('speed-label').textContent = String(speed);
+                    }
                 }
             } catch {
                 // non-fatal — slider stays at default 60%

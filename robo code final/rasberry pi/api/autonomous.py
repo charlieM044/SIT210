@@ -5,6 +5,7 @@ Reads real sensor data from Arduino serial messages.
 
 import time
 import threading
+from datetime import datetime
 from config import SENSOR_SAVE_INTERVAL, MOISTURE_MODERATE
 from state import state
 from hardware import motors
@@ -19,6 +20,17 @@ def _determine_severity(moisture):
     return 'Minor'
 
 
+def _build_reading_snapshot(sensor):
+    return {
+        'moisture': sensor['moisture'],
+        'moisture_label': sensor.get('moisture_label', ''),
+        'severity': _determine_severity(sensor['moisture']),
+        'gps_lat': sensor.get('gps_lat'),
+        'gps_lng': sensor.get('gps_lng'),
+        'timestamp': datetime.now().isoformat(),
+    }
+
+
 # ── Shared sensor state (updated by Arduino messages) ─────────────────────────
 _sensor_state = {
     'gps_lat':  None,
@@ -26,6 +38,8 @@ _sensor_state = {
     'moisture': None,
     'moisture_raw': None,
     'moisture_label': None,
+    'moisture_updated_at': 0.0,
+    'gps_updated_at': 0.0,
     'ultrasonic_status': None,  # 'safe' | 'wall' | 'error'
     'ultrasonic_distance': None,
     'gps_status': None,         # 'ok' | 'no_fix'
@@ -66,6 +80,7 @@ def _process_parsed(parsed):
                 _sensor_state['moisture']       = parsed.get('percent')
                 _sensor_state['moisture_raw']   = parsed.get('raw')
                 _sensor_state['moisture_label'] = parsed.get('label')
+                _sensor_state['moisture_updated_at'] = time.time()
             elif parsed.get('status') == 'threshold_triggered':
                 # Keep last moisture value but flag it
                 _sensor_state['moisture_label'] = 'THRESHOLD_TRIGGERED'
@@ -75,6 +90,10 @@ def _process_parsed(parsed):
             _sensor_state['gps_status'] = parsed.get('status')
             _sensor_state['gps_lat']    = parsed.get('lat')
             _sensor_state['gps_lng']    = parsed.get('lng')
+            _sensor_state['gps_updated_at'] = time.time()
+
+            if _sensor_state['moisture'] is not None:
+                state['latest_reading'] = _build_reading_snapshot(_sensor_state)
 
 
 def _handle_wall_avoidance(parsed, now, avoiding_wall, safe_since):
@@ -146,6 +165,7 @@ def _handle_wall_avoidance(parsed, now, avoiding_wall, safe_since):
 def _loop():
     print("[Auto] loop started")
     last_save = 0.0
+    last_saved_moisture_at = 0.0
     last_motor_cmd = 0.0  # Debounce motor commands to 1 per second
     avoiding_wall = False  # Currently in wall avoidance
     safe_since = 0.0       # When we last detected "safe" distance
@@ -187,63 +207,61 @@ def _loop():
 
         # ── Periodic sensor save ───────────────────────────────────────────────
         now = time.time()
-        if now - last_save >= SENSOR_SAVE_INTERVAL:
-            last_save = now
-            try:
-                sensor = read_sensors()
+        if now - last_save >= SENSOR_SAVE_INTERVAL and parsed:
+            should_save = (
+                parsed.get('type') == 'gps'
+                and parsed.get('status') in ('ok', 'no_fix')
+            )
 
-                if sensor is None:
-                    print("[Auto] no sensor data yet — waiting for Arduino")
-                    continue
+            if should_save:
+                with _sensor_lock:
+                    sensor = dict(_sensor_state)
 
-                severity   = _determine_severity(sensor['moisture'])
-                image_path = None
-
-                # Capture image regardless of GPS status
-                # GPS coordinates can be null, but image is still valuable
-                if sensor['moisture'] > MOISTURE_MODERATE:
-                    from hardware import camera
+                if sensor['moisture'] is not None and sensor['moisture_updated_at'] > last_saved_moisture_at:
+                    last_save = now
                     try:
-                        image_path = camera.capture_image(
-                            sensor.get('gps_lat'),
-                            sensor.get('gps_lng'),
-                            sensor['moisture'],
+                        severity   = _determine_severity(sensor['moisture'])
+                        image_path = None
+
+                        # Capture image regardless of GPS status
+                        # GPS coordinates can be null, but image is still valuable
+                        if sensor['moisture'] > MOISTURE_MODERATE:
+                            from hardware import camera
+                            try:
+                                image_path = camera.capture_image(
+                                    sensor.get('gps_lat'),
+                                    sensor.get('gps_lng'),
+                                    sensor['moisture'],
+                                )
+                            except Exception as e:
+                                print(f"[Auto] image capture failed: {e}")
+
+                        latest_reading = _build_reading_snapshot(sensor)
+                        state['latest_reading'] = latest_reading
+
+                        # Save to disk database in the background
+                        storage.add_moisture_reading(
+                            gps_lat    = sensor.get('gps_lat'),
+                            gps_lng    = sensor.get('gps_lng'),
+                            moisture   = sensor['moisture'],
+                            image_path = image_path,
+                            severity   = severity,
                         )
+                        last_saved_moisture_at = sensor['moisture_updated_at']
+
+                        gps_str = f"({sensor['gps_lat']}, {sensor['gps_lng']})" if sensor.get('gps_lat') else "(NO FIX)"
+                        print(f"[Auto] saved: moisture={sensor['moisture']:.1f}%"
+                              f" ({sensor.get('moisture_label', '')}) "
+                              f"severity={severity} gps={gps_str}")
+
+                        if severity == 'Critical' and state['mode'] == 'autonomous':
+                            motors.stop()
+                            time.sleep(1)
+                            motors.forward()
+                            clear_buffer()  # Clear buffer to prevent old messages from triggering again
+                            print("[Auto] CRITICAL moisture level — stopping briefly and resuming")
                     except Exception as e:
-                        print(f"[Auto] image capture failed: {e}")
-
-                # Save regardless of GPS status — GPS can be null
-                state['latest_reading'] = {
-                    'moisture': sensor['moisture'],
-                    'moisture_label': sensor.get('moisture_label', ''),
-                    'severity': severity,
-                    'gps_lat': sensor.get('gps_lat'),
-                    'gps_lng': sensor.get('gps_lng'),
-                    'timestamp': datetime.now().isoformat() # ensure frontend has a timestamp
-                }
-
-                # Save to disk database in the background
-                storage.add_moisture_reading(
-                    gps_lat    = sensor.get('gps_lat'),  
-                    gps_lng    = sensor.get('gps_lng'),  
-                    moisture   = sensor['moisture'],
-                    image_path = image_path,
-                    severity   = severity,
-                )
-
-                gps_str = f"({sensor['gps_lat']}, {sensor['gps_lng']})" if sensor.get('gps_lat') else "(NO FIX)"
-                print(f"[Auto] saved: moisture={sensor['moisture']:.1f}%"
-                      f" ({sensor.get('moisture_label', '')}) "
-                      f"severity={severity} gps={gps_str}")
-
-                if severity == 'Critical' and state['mode'] == 'autonomous':
-                    motors.stop()
-                    time.sleep(1)
-                    motors.forward()
-                    clear_buffer()  # Clear buffer to prevent old messages from triggering again
-                    print("[Auto] CRITICAL moisture level — stopping briefly and resuming")
-            except Exception as e:
-                print(f"[Auto] sensor error: {e}")
+                        print(f"[Auto] sensor error: {e}")
 
         time.sleep(0.05)  # tighter loop = faster ultrasonic response
 
