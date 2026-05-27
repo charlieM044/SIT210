@@ -160,7 +160,7 @@
                      onerror="this.outerHTML='<p style=\'color:#999;text-align:center;padding:40px\'>Video feed offline</p>'">
             </div>
 
-            <!-- Control card -->
+                <!-- Control card -->
             <div class="card">
                 <h2>🎮 Control Commands</h2>
 
@@ -185,11 +185,22 @@
 
                 <h3 style="margin: 20px 0 10px 0; color: #333;">Movement Controls</h3>
                 <div class="movement-pad">
-                    <button class="movement-btn forward"      onclick="sendRobotCommand('forward')">▲ Forward</button>
-                    <button class="movement-btn left"         onclick="sendRobotCommand('left')">◀ Left</button>
-                    <button class="movement-btn stop-center"  onclick="sendRobotCommand('stop')">■ Stop</button>
-                    <button class="movement-btn right"        onclick="sendRobotCommand('right')">Right ▶</button>
-                    <button class="movement-btn backward"     onclick="sendRobotCommand('backward')">▼ Back</button>
+                    <button class="movement-btn forward"     onclick="sendRobotCommand('forward')">▲ Forward</button>
+                    <button class="movement-btn left"        onclick="sendRobotCommand('left')">◀ Left</button>
+                    <button class="movement-btn stop-center" onclick="sendRobotCommand('stop')">■ Stop</button>
+                    <button class="movement-btn right"       onclick="sendRobotCommand('right')">Right ▶</button>
+                    <button class="movement-btn backward"    onclick="sendRobotCommand('backward')">▼ Back</button>
+                </div>
+
+                <!-- Speed slider -->
+                <div style="margin: 20px 0 10px 0;">
+                    <label for="speed-slider" style="display:flex; justify-content:space-between; margin-bottom:6px; color:#333; font-weight:bold;">
+                        <span>⚡ Speed</span>
+                        <span id="speed-label">60</span>%
+                    </label>
+                    <input type="range" id="speed-slider" min="10" max="100" value="60" step="5"
+                        style="width:100%;"
+                        oninput="document.getElementById('speed-label').textContent = this.value">
                 </div>
 
                 <button class="emergency-stop" onclick="emergencyStop()">🚨 EMERGENCY STOP</button>
@@ -198,9 +209,6 @@
                     💡 Arrow keys to move. Spacebar to stop.
                 </p>
             </div>
-
-        </div>
-
         <!-- Live sensor data -->
         <div class="card" style="margin-top: 20px;">
             <h2>📊 Live Sensor Data</h2>
@@ -274,23 +282,41 @@
 
         async function sendRobotCommand(commandName) {
             try {
+                const speed = commandName !== 'stop'
+                    ? parseInt(document.getElementById('speed-slider').value)
+                    : undefined;
+
                 const response = await fetch('/api/control', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ command: commandName })
+                    body: JSON.stringify({ command: commandName, ...(speed !== undefined && { speed }) })
                 });
+
                 const data = await response.json();
                 if (!response.ok) {
-                    updateStatus(`X Error: ${data.error || 'Command rejected'}`, false);
+                    updateStatus(`✗ Error: ${data.error || 'Command rejected'}`, false);
                 } else {
                     const msg = data.executed
-                        ? `Moving: ${commandName.toUpperCase()}`
+                        ? `Moving: ${commandName.toUpperCase()}${speed !== undefined ? ` at ${speed}%` : ''}`
                         : `Autonomous mode active — command ignored`;
                     updateStatus(msg, data.executed);
                 }
             } catch (err) {
                 console.error('Error sending command:', err);
-                updateStatus('X Connection Error', false);
+                updateStatus('✗ Connection Error', false);
+            }
+        }
+        
+         function initSpeedSlider() {
+            try {
+                const res  = await fetch('/api/speed');
+                const data = await res.json();
+                if (data.speed && data.speed > 0) {
+                    document.getElementById('speed-slider').value = data.speed;
+                    document.getElementById('speed-label').textContent  = data.speed;
+                }
+            } catch {
+                // non-fatal — slider stays at default 60%
             }
         }
 
@@ -344,6 +370,7 @@
             } catch (err) {
                 updateStatus('X Could not reach Pi', false);
             }
+                await initSpeedSlider();
         });
     </script>
 </body>

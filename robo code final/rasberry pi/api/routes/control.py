@@ -18,20 +18,34 @@ COMMANDS = {
     'left':     motors.left,
     'right':    motors.right,
     'stop':     motors.stop,
+
 }
 
 ALWAYS_EXECUTE = {'stop'}
 
 @control_bp.route('/api/control', methods=['POST'])
 def control():
-    command = request.json.get('command') if request.json else None
+    data    = request.json or {}
+    command = data.get('command')
+    speed   = data.get('speed')          # new — optional int 0-100
+
     if command not in COMMANDS:
         return jsonify({'error': f'unknown command: {command}',
                         'valid': list(COMMANDS)}), 400
+
     executed = (state['mode'] == 'manual') or (command in ALWAYS_EXECUTE)
     if executed:
-        COMMANDS[command]()
-    return jsonify({'mode': state['mode'], 'command': command, 'executed': executed})
+        if speed is not None and command != 'stop':
+            COMMANDS[command](speed=int(speed))
+        else:
+            COMMANDS[command]()
+
+    return jsonify({'mode': state['mode'], 'command': command,
+                    'executed': executed, 'speed': speed})
+
+@control_bp.route('/api/speed', methods=['GET'])
+def get_speed():
+    return jsonify({'speed': motors.current_speed})
 
 @control_bp.route('/api/mode', methods=['GET', 'POST'])
 def mode():

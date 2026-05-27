@@ -1,15 +1,26 @@
 /*
-  Main.ino — entry point only.
+  Main.ino  –  Entry point only.
   Hardware logic lives in ultrasonic.ino and moisture.ino.
 
-  Serial output to Pi at 9600:
+  Serial output to Pi at 9600 baud:
+
     READY
-    SAFE
-    WALL:<dist1>,<dist2>,<angle>
+    CMD:FORWARD              drive forward, full speed
+    CMD:FORWARD:<speed>      drive forward at speed % (30-100)
+    CMD:LEFT                 turn left
+    CMD:LEFT:<speed>         turn left at speed %
+    CMD:RIGHT                turn right
+    CMD:RIGHT:<speed>        turn right at speed %
+    CMD:STOP                 stop motors
+
+    ULTRASONIC: SAFE
+    ULTRASONIC: WALL:<d1>,<d2>,<angle>
+    ULTRASONIC: ERROR - Invalid Reading (d1: x, d2: y)
+
     MOISTURE:<raw>,<DRY|MOIST|WET>
-    MOISTURE:THRESHOLD_TRIGGERED
     GPS:<lat>,<lng>
     GPS:NO_FIX
+    STATUS:STUCK             avoidance timed out, operator intervention needed
 */
 
 #include "ultrasonic.h"
@@ -18,54 +29,69 @@
 
 TinyGPSPlus gps;
 
-void feedGPS() {
+// ── GPS helpers ───────────────────────────────────────────────────────────────
+void feedGPS()
+{
   unsigned long start = millis();
-  // Prevent infinite loop - stop after 50ms of processing
-  while (Serial1.available() && (millis() - start < 50)) {
+  // 50 ms budget — avoids blocking the sensor loop
+  while (Serial1.available() && (millis() - start < 50))
+  {
     gps.encode(Serial1.read());
   }
 }
 
-void sendGPS() {
-  if (gps.location.isValid()) {
+void sendGPS()
+{
+  if (gps.location.isValid())
+  {
     Serial.print("GPS:");
     Serial.print(gps.location.lat(), 6);
     Serial.print(",");
     Serial.println(gps.location.lng(), 6);
-  } else {
+  }
+  else
+  {
     Serial.println("GPS:NO_FIX");
   }
 }
 
-void setup() {
+// ── Setup ─────────────────────────────────────────────────────────────────────
+void setup()
+{
   Serial.begin(9600);
-  Serial1.begin(115200);
+  Serial1.begin(115200); // GPS module
   initWallAvoidance();
-
-
   Serial.println("READY");
-
- 
-
 }
 
-unsigned long lastReading    = 0;
-unsigned long readingInterval = 1000;
-unsigned long lastSonicTime   = 0;
-unsigned long sonicInterval   = 100;  // Ultrasonic checks every 100ms
+// ── Timing ────────────────────────────────────────────────────────────────────
+unsigned long lastSensor = 0;
+unsigned long lastReading = 0;
 
-void loop() {
+// Sensor cycle: 100 ms  (each getDistance blocks ~9 ms max + 15 ms gap = ~33 ms
+// total sensor work; 100 ms period gives 67 ms of breathing room for GPS)
+const unsigned long SONIC_INTERVAL = 100;
+// Moisture + GPS: once per second
+const unsigned long READING_INTERVAL = 1000;
+
+// ── Loop ──────────────────────────────────────────────────────────────────────
+void loop()
+{
   unsigned long now = millis();
 
+  // GPS runs every iteration inside its own 50 ms budget
   feedGPS();
-  updateWallAvoidance();
-  // 2. Rate-limit the ultrasonic sensor to stop pulseIn from blocking GPS data
-  if (now - lastSonicTime >= sonicInterval) {
-    lastSonicTime = now;
-    updateWallAvoidance(); 
+
+  // Ultrasonic + avoidance state machine at SONIC_INTERVAL
+  if (now - lastSensor >= SONIC_INTERVAL)
+  {
+    lastSensor = now;
+    updateWallAvoidance(); // reads sensors, updates state, sends CMD: + ULTRASONIC:
   }
 
-  if (now - lastReading >= readingInterval) {
+  // Moisture + GPS report at READING_INTERVAL
+  if (now - lastReading >= READING_INTERVAL)
+  {
     lastReading = now;
     readMoisture();
     sendGPS();

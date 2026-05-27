@@ -34,7 +34,6 @@ capabilities = {
     'CAN_SAVE_DATA':   False,
     'CAN_CAPTURE':     False,
     'CAN_GPS':         False,
-    'CAN_AVOID_WALLS': False,
 }
 
 
@@ -195,16 +194,37 @@ def check_ultrasonic():
     try:
         from hardware.arduino import arduino, read_line, parse
         if arduino is None:
-            return False, 'Serial object is None'
+            _set('ultrasonic', False,
+                 detail='Serial object is None',
+                 error='Port failed to open — check SERIAL_PORT in config')
+            return
+
         if not arduino.in_waiting:
-            return False, 'Serial open but no data'
+            _set('ultrasonic', False,
+                 detail='Serial open but no data',
+                 error='Arduino connected but silent — check power and baud rate')
+            return
+
         line   = read_line()
         parsed = parse(line)
-        if parsed is None or parsed.get('type') != 'wall':
-            return False, f'Unparseable or wrong type: {repr(line)}'
-        return True, f'type={parsed["type"]} raw={repr(line)}'
+
+        if parsed is None:
+            _set('ultrasonic', False,
+                 detail=f'Unparseable: {repr(line)}',
+                 error='Data received but format not recognised')
+            return
+
+        if parsed.get('type') not in ('ultrasonic', 'cmd'):
+            _set('ultrasonic', False,
+                 detail=f'Unexpected message type: {parsed.get("type")}',
+                 error='Expected ultrasonic or cmd message')
+            return
+
+        _set('ultrasonic', True,
+             detail=f'type={parsed["type"]} raw={repr(line)}')
+
     except Exception as e:
-        return False, str(e)
+        _set('ultrasonic', False, error=str(e))
     
     
     
