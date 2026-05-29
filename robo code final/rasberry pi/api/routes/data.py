@@ -26,7 +26,7 @@ def status():
 @data_bp.route('/api/readings')
 def get_readings():
     since    = request.args.get('since', 0, type=float)
-    readings = storage.get_all_readings()
+    readings = storage.get_all_readings_history()
     if since:
         cutoff   = datetime.fromtimestamp(since).isoformat()
         readings = [r for r in readings if r.get('timestamp', '') > cutoff]
@@ -49,7 +49,11 @@ def get_latest_reading():
     return jsonify(None)
 @data_bp.route('/api/stats')
 def get_stats():
-    stats  = storage.get_moisture_stats() or {}
+    scope = request.args.get('scope', 'live')
+    if scope == 'history':
+        stats = storage.get_moisture_stats_history() or {}
+    else:
+        stats = storage.get_moisture_stats() or {}
     stats['uptime'] = int(time.time() - state['start_time'])
     return jsonify(stats)
 

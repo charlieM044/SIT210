@@ -5,8 +5,15 @@ Reads real sensor data from Arduino serial messages.
 
 import time
 import threading
+from collections import deque
 from datetime import datetime
-from config import SENSOR_SAVE_INTERVAL, MOISTURE_MODERATE
+from config import (
+    SENSOR_SAVE_INTERVAL,
+    MOISTURE_MODERATE,
+    MOISTURE_DRY_RAW,
+    MOISTURE_WET_RAW,
+    MOISTURE_SMOOTHING_WINDOW,
+)
 from state import state
 from hardware import motors
 from hardware.arduino import read_line, parse, clear_buffer
@@ -20,10 +27,19 @@ def _determine_severity(moisture):
     return 'Minor'
 
 
+def _raw_to_percent(raw_value):
+    span = MOISTURE_WET_RAW - MOISTURE_DRY_RAW
+    if span == 0:
+        return 0.0
+    percent = ((raw_value - MOISTURE_DRY_RAW) / span) * 100.0
+    return max(0.0, min(100.0, percent))
+
+
 def _build_reading_snapshot(sensor):
     return {
         'moisture': sensor['moisture'],
         'moisture_label': sensor.get('moisture_label', ''),
+        'moisture_raw': sensor.get('moisture_raw'),
         'severity': _determine_severity(sensor['moisture']),
         'gps_lat': sensor.get('gps_lat'),
         'gps_lng': sensor.get('gps_lng'),
@@ -37,6 +53,7 @@ _sensor_state = {
     'gps_lng':  None,
     'moisture': None,
     'moisture_raw': None,
+    'moisture_raw_avg': None,
     'moisture_label': None,
     'moisture_updated_at': 0.0,
     'gps_updated_at': 0.0,
@@ -45,6 +62,7 @@ _sensor_state = {
     'gps_status': None,         # 'ok' | 'no_fix'
 }
 _sensor_lock = threading.Lock()
+_moisture_samples = deque(maxlen=MOISTURE_SMOOTHING_WINDOW)
 
 
 def read_sensors():
@@ -77,8 +95,13 @@ def _process_parsed(parsed):
     elif t == 'moisture':
         with _sensor_lock:
             if parsed.get('status') == 'ok':
-                _sensor_state['moisture']       = parsed.get('percent')
-                _sensor_state['moisture_raw']   = parsed.get('raw')
+                raw = parsed.get('raw')
+                if raw is not None:
+                    _moisture_samples.append(raw)
+                    averaged_raw = sum(_moisture_samples) / len(_moisture_samples)
+                    _sensor_state['moisture_raw'] = raw
+                    _sensor_state['moisture_raw_avg'] = averaged_raw
+                    _sensor_state['moisture'] = round(_raw_to_percent(averaged_raw), 1)
                 _sensor_state['moisture_label'] = parsed.get('label')
                 _sensor_state['moisture_updated_at'] = time.time()
             elif parsed.get('status') == 'threshold_triggered':

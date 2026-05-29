@@ -531,7 +531,7 @@
   async function load() {
     // Stats
     try {
-      const r = await fetch('/api/stats');
+      const r = await fetch('/api/stats?scope=history');
       const d = await r.json();
       document.getElementById('sTotal').textContent  = d.count ?? '—';
       document.getElementById('sAvg').innerHTML      = `${Number(d.average||0).toFixed(1)}<span>%</span>`;

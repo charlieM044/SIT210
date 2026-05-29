@@ -117,10 +117,29 @@ class LocalDataManager:
         with self._lock:
             return list(self._buffer)
 
+    def get_all_readings_history(self):
+        with sqlite3.connect(self.db_path) as conn:
+            rows = conn.execute(
+                'SELECT * FROM moisture_readings ORDER BY id ASC'
+            ).fetchall()
+        return [self._row_to_dict(row) for row in rows]
+
     def get_moisture_stats(self):
         with self._lock:
-            values = [r['moisture'] for r in self._buffer
-                      if r['moisture'] is not None]
+            readings = list(self._buffer)
+        return self._stats_from_readings(readings)
+
+    def get_moisture_stats_history(self):
+        with sqlite3.connect(self.db_path) as conn:
+            rows = conn.execute(
+                'SELECT * FROM moisture_readings ORDER BY id ASC'
+            ).fetchall()
+        readings = [self._row_to_dict(row) for row in rows]
+        return self._stats_from_readings(readings)
+
+    @staticmethod
+    def _stats_from_readings(readings):
+        values = [r['moisture'] for r in readings if r['moisture'] is not None]
         if not values:
             return None
         return {
@@ -146,7 +165,7 @@ class LocalDataManager:
         }
 
     def export_report(self, filename='inspection_report.json'):
-        readings = self.get_all_readings()
+        readings = self.get_all_readings_history()
         stats    = self.get_moisture_stats()
         report   = {
             'inspection_date':    datetime.now().isoformat(),

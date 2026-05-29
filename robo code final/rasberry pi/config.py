@@ -19,6 +19,9 @@ SENSOR_SAVE_INTERVAL = 5.0  # seconds between sensor saves
 # ── Moisture thresholds ────────────────────────────────────────────────────────
 MOISTURE_CRITICAL  = 80     # above this → Critical
 MOISTURE_MODERATE  = 60     # above this → Moderate, capture image
+MOISTURE_DRY_RAW   = 200    # calibrate this to your sensor's dry reading
+MOISTURE_WET_RAW   = 600    # calibrate this to your sensor's wet reading
+MOISTURE_SMOOTHING_WINDOW = 5
 
 # ── Motor GPIO pins (BCM numbering) ───────────────────────────────────────────
 MOTOR1_IN1 = 17
