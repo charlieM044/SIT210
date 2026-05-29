@@ -98,13 +98,8 @@ def get_image_by_filename(filename):
 def get_image_for_reading():
     image_root = Path(IMAGE_DIR).resolve()
     timestamp = request.args.get('timestamp', '').strip()
-    image_filename = request.args.get('image_filename', '').strip()
 
     candidates = []
-
-    if image_filename:
-        safe_name = Path(image_filename).name
-        candidates.append((image_root / safe_name).resolve())
 
     if timestamp:
         try:

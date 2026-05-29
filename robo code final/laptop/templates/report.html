@@ -408,7 +408,6 @@
   function imageUrlForReading(reading) {
     const params = new URLSearchParams();
     if (reading.timestamp) params.set('timestamp', reading.timestamp);
-    if (reading.image_filename) params.set('image_filename', reading.image_filename);
     return `/api/image-for-reading?${params.toString()}`;
   }
 
@@ -573,7 +572,7 @@
           const mois = r.moisture != null ? Number(r.moisture).toFixed(1) + '%' : '—';
           const temp = r.ir_temp  != null ? Number(r.ir_temp).toFixed(1)  + '°C' : '—';
           const col  = r.moisture != null ? moistureColor(r.moisture) : 'inherit';
-          const img  = (r.image_filename || r.timestamp)
+          const img  = (r.timestamp && Number(r.moisture) > 60)
             ? `<a class="thumb-link" href="${imageUrlForReading(r)}" target="_blank" rel="noopener">` +
               `<img class="thumb" src="${imageUrlForReading(r)}" alt="Reading image">` +
               `</a>`
