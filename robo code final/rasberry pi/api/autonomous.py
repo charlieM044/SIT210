@@ -31,7 +31,7 @@ def _raw_to_percent(raw_value):
     span = MOISTURE_WET_RAW - MOISTURE_DRY_RAW
     if span == 0:
         return 0.0
-    percent = ((MOISTURE_WET_RAW - raw_value) / span) * 100.0
+    percent = ((raw_value - MOISTURE_DRY_RAW) / span) * 100.0
     return max(0.0, min(100.0, percent))
 
 

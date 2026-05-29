@@ -19,14 +19,14 @@ void readMoisture() {
     int moistureValue = analogRead(MOISTURE_PIN);
     
     // 2. Send structured data to the Pi
-    Serial.print("MOISTURE:");ff
+    Serial.print("MOISTURE:");
     Serial.print(moistureValue);
     Serial.print(",");
 
     if (moistureValue <= WET_THRESHOLD) {
-        Serial.println("WET");
-    } else if (moistureValue >= DRY_THRESHOLD) {
         Serial.println("DRY");
+    } else if (moistureValue >= DRY_THRESHOLD) {
+        Serial.println("WET");
     } else {
         Serial.println("MOIST");
     }
