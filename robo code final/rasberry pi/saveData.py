@@ -2,6 +2,9 @@
 saveData.py  –  LocalDataManager
 In-memory ring buffer for fast reads; SQLite for persistence across reboots.
 All path/size constants come from config.py.
+
+Rows are always accessed by column NAME (via sqlite3.Row), never by index,
+so adding or removing columns in the future cannot silently break anything.
 """
 
 import os
@@ -13,6 +16,13 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 from config import DATA_DIR, IMAGE_DIR, DB_PATH, RING_BUFFER_SIZE
+
+
+def _named_conn(db_path):
+    """Return a connection whose rows support both dict-style and attr access."""
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row   # row['severity'] instead of row[8]
+    return conn
 
 
 class LocalDataManager:
@@ -28,10 +38,12 @@ class LocalDataManager:
         self._buffer = deque(maxlen=RING_BUFFER_SIZE)
 
         self._init_database()
+        self._migrate_database()
         self._warm_buffer()
 
+    # ── Schema ─────────────────────────────────────────────────────────────────
     def _init_database(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with _named_conn(self.db_path) as conn:
             conn.execute('''
                 CREATE TABLE IF NOT EXISTS moisture_readings (
                     id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,16 +53,58 @@ class LocalDataManager:
                     date           TEXT,
                     time           TEXT,
                     moisture       REAL,
-                   
                     severity       TEXT,
                     image_filename TEXT
                 )
             ''')
             conn.commit()
 
+    def _migrate_database(self):
+        """
+        Remove legacy columns that no longer exist in the schema.
+        SQLite doesn't support DROP COLUMN before 3.35.0, so we use the
+        canonical table-rebuild approach for older Pi SQLite versions too.
+        """
+        with _named_conn(self.db_path) as conn:
+            cols = {row['name'] for row in conn.execute(
+                "PRAGMA table_info(moisture_readings)"
+            ).fetchall()}
+
+        legacy = {'ir_temp'}   # add any future removed columns here
+        if not (legacy & cols):
+            return  # nothing to do
+
+        print(f"[Storage] migrating DB — dropping legacy columns: {legacy & cols}")
+        with _named_conn(self.db_path) as conn:
+            conn.executescript('''
+                BEGIN;
+                CREATE TABLE IF NOT EXISTS moisture_readings_new (
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp      DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    gps_lat        REAL,
+                    gps_lng        REAL,
+                    date           TEXT,
+                    time           TEXT,
+                    moisture       REAL,
+                    severity       TEXT,
+                    image_filename TEXT
+                );
+                INSERT INTO moisture_readings_new
+                    (id, timestamp, gps_lat, gps_lng, date, time,
+                     moisture, severity, image_filename)
+                SELECT  id, timestamp, gps_lat, gps_lng, date, time,
+                        moisture, severity, image_filename
+                FROM    moisture_readings;
+                DROP TABLE moisture_readings;
+                ALTER TABLE moisture_readings_new RENAME TO moisture_readings;
+                COMMIT;
+            ''')
+        print("[Storage] migration complete")
+
+    # ── Buffer warm-up ─────────────────────────────────────────────────────────
     def _warm_buffer(self):
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with _named_conn(self.db_path) as conn:
                 rows = conn.execute(
                     f'SELECT * FROM moisture_readings '
                     f'ORDER BY id DESC LIMIT {RING_BUFFER_SIZE}'
@@ -71,15 +125,15 @@ class LocalDataManager:
                 image_filename = self._save_image(image_path, gps_lat, gps_lng)
 
             now = reading_time or datetime.now()
-            row = {
-                'id':        None,
-                'timestamp': now.isoformat(sep=' ', timespec='seconds'),
-                'gps_lat':   gps_lat,
-                'gps_lng':   gps_lng,
-                'date':      now.strftime('%Y-%m-%d'),
-                'time':      now.strftime('%H:%M:%S'),
-                'moisture':  moisture,
-                'severity':  severity,
+            record = {
+                'id':             None,
+                'timestamp':      now.isoformat(sep=' ', timespec='seconds'),
+                'gps_lat':        gps_lat,
+                'gps_lng':        gps_lng,
+                'date':           now.strftime('%Y-%m-%d'),
+                'time':           now.strftime('%H:%M:%S'),
+                'moisture':       moisture,
+                'severity':       severity,
                 'image_filename': image_filename,
             }
             threading.Thread(
@@ -88,7 +142,7 @@ class LocalDataManager:
                 daemon=True
             ).start()
             with self._lock:
-                self._buffer.append(row)
+                self._buffer.append(record)
             print(f"[Storage] saved @ {moisture:.1f}% {severity}")
             return True
         except Exception as e:
@@ -99,14 +153,21 @@ class LocalDataManager:
                   image_filename, severity, reading_time=None):
         try:
             now = reading_time or datetime.now()
-            with sqlite3.connect(self.db_path) as conn:
+            with _named_conn(self.db_path) as conn:
                 conn.execute(
                     '''INSERT INTO moisture_readings
                        (gps_lat, gps_lng, date, time, moisture, severity, image_filename)
-                       VALUES (?,?,?,?,?,?,?)''',
-                    (gps_lat, gps_lng,
-                     now.strftime('%Y-%m-%d'), now.strftime('%H:%M:%S'),
-                     moisture, severity, image_filename)
+                       VALUES (:gps_lat, :gps_lng, :date, :time,
+                               :moisture, :severity, :image_filename)''',
+                    {
+                        'gps_lat':        gps_lat,
+                        'gps_lng':        gps_lng,
+                        'date':           now.strftime('%Y-%m-%d'),
+                        'time':           now.strftime('%H:%M:%S'),
+                        'moisture':       moisture,
+                        'severity':       severity,
+                        'image_filename': image_filename,
+                    }
                 )
                 conn.commit()
         except Exception as e:
@@ -118,7 +179,7 @@ class LocalDataManager:
             return list(self._buffer)
 
     def get_all_readings_history(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with _named_conn(self.db_path) as conn:
             rows = conn.execute(
                 'SELECT * FROM moisture_readings ORDER BY id ASC'
             ).fetchall()
@@ -130,7 +191,7 @@ class LocalDataManager:
         return self._stats_from_readings(readings)
 
     def get_moisture_stats_history(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with _named_conn(self.db_path) as conn:
             rows = conn.execute(
                 'SELECT * FROM moisture_readings ORDER BY id ASC'
             ).fetchall()
@@ -147,7 +208,7 @@ class LocalDataManager:
             'max':            max(values),
             'min':            min(values),
             'count':          len(values),
-            'critical_count': sum(1 for v in values if v > 80),
+            'critical_count': sum(1 for r in readings if r.get('severity') == 'Critical'),
         }
 
     def get_storage_info(self):
@@ -183,31 +244,24 @@ class LocalDataManager:
     # ── Helpers ────────────────────────────────────────────────────────────────
     @staticmethod
     def _row_to_dict(row):
-        return {
-            'id': row[0], 'timestamp': row[1],
-            'gps_lat': row[2], 'gps_lng': row[3],
-            'date': row[4], 'time': row[5],
-            'moisture': row[6],
-            'severity': row[7], 'image_filename': row[8],
-        }
+        """
+        Convert a sqlite3.Row to a plain dict using column names — never indices.
+        Adding or removing DB columns cannot break this.
+        """
+        return dict(row)
 
     def _save_image(self, source, gps_lat, gps_lng):
         try:
             source_path = Path(source)
-
-            # If the camera already saved the image inside IMAGE_DIR, reuse it.
             if source_path.parent.resolve() == self.images_path.resolve():
                 return source_path.name
-
-            ts    = datetime.now().strftime('%Y%m%d_%H%M%S')
-            # GPS coordinates optional
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
             if gps_lat is not None and gps_lng is not None:
                 fname = (f"moisture_{ts}"
                          f"_lat{abs(gps_lat):.4f}_lng{abs(gps_lng):.4f}.jpg"
                          .replace('.', '_', 2))
             else:
-                fname = (f"moisture_{ts}"
-                         f"_nofixgps.jpg")
+                fname = f"moisture_{ts}_nofixgps.jpg"
             shutil.copy(source, self.images_path / fname)
             return fname
         except Exception as e:
@@ -231,8 +285,7 @@ class LocalDataManager:
             return None
         latest_image = max(images, key=lambda p: p.stat().st_mtime)
         return latest_image.read_bytes()
-        
-        
+
 
 # Module-level singleton
 storage = LocalDataManager()
