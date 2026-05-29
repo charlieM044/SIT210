@@ -3,7 +3,7 @@ api/routes/data.py  –  Sensor data and storage endpoints.
 """
 
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from flask import Blueprint, Response, jsonify, request
 from state import state
@@ -94,28 +94,6 @@ def get_image_by_filename(filename):
     return jsonify({'error': 'image not found'}), 404
 
 
-@data_bp.route('/api/image-for-reading')
-def get_image_for_reading():
-    image_root = Path(IMAGE_DIR).resolve()
-    timestamp = request.args.get('timestamp', '').strip()
-
-    candidates = []
-
-    if timestamp:
-        try:
-            parsed_time = datetime.fromisoformat(timestamp)
-            timestamp_prefix = parsed_time.strftime('%Y%m%d_%H%M%S')
-            candidates.extend(sorted(image_root.glob(f'moisture_{timestamp_prefix}*.jpg')))
-        except ValueError:
-            pass
-
-    for candidate in candidates:
-        if candidate.exists() and candidate.is_file() and candidate.suffix.lower() == '.jpg':
-            if image_root not in candidate.parents and candidate != image_root:
-                continue
-            return Response(candidate.read_bytes(), mimetype='image/jpeg')
-
-    return jsonify({'error': 'image not found'}), 404
   
 
 

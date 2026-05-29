@@ -405,12 +405,6 @@
     return `<span class="badge badge-${s}">${s.toUpperCase()}</span>`;
   }
 
-  function imageUrlForReading(reading) {
-    const params = new URLSearchParams();
-    if (reading.timestamp) params.set('timestamp', reading.timestamp);
-    return `/api/image-for-reading?${params.toString()}`;
-  }
-
   // ── Mini canvas chart ──────────────────────────────────────────────────────
   function drawChart(readings) {
     const canvas = document.getElementById('moistureChart');
@@ -572,9 +566,9 @@
           const mois = r.moisture != null ? Number(r.moisture).toFixed(1) + '%' : '—';
           const temp = r.ir_temp  != null ? Number(r.ir_temp).toFixed(1)  + '°C' : '—';
           const col  = r.moisture != null ? moistureColor(r.moisture) : 'inherit';
-          const img  = (r.timestamp && Number(r.moisture) > 60)
-            ? `<a class="thumb-link" href="${imageUrlForReading(r)}" target="_blank" rel="noopener">` +
-              `<img class="thumb" src="${imageUrlForReading(r)}" alt="Reading image">` +
+          const img  = r.image_filename
+            ? `<a class="thumb-link" href="/api/image/${encodeURIComponent(r.image_filename)}" target="_blank" rel="noopener">` +
+              `<img class="thumb" src="/api/image/${encodeURIComponent(r.image_filename)}" alt="Reading image" onerror="this.closest('td').textContent='—'">` +
               `</a>`
             : '—';
           return `<tr>

@@ -96,23 +96,24 @@ class CameraManager:
             print(f"[Camera] _get_frame error: {e}")
         return None
 
-    def capture_image(self, gps_lat, gps_lng, moisture):
+    def capture_image(self, gps_lat, gps_lng, moisture, captured_at=None):
         try:
             frame = self._get_frame()
             if frame is None:
                 return None
-            ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            captured_at = captured_at or datetime.now()
+            ts = captured_at.strftime('%Y-%m-%d %H:%M:%S')
             cv2.putText(frame, ts,                          (10, 30),  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
             cv2.putText(frame, f"Moisture: {moisture:.1f}%",(10, 70),  cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
             
             # GPS coordinates optional — can be None if no fix yet
             if gps_lat is not None and gps_lng is not None:
                 cv2.putText(frame, f"GPS: {gps_lat:.4f}, {gps_lng:.4f}", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
-                fname = (f"moisture_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                fname = (f"moisture_{captured_at.strftime('%Y%m%d_%H%M%S')}"
                          f"_lat{abs(gps_lat):.4f}_lng{abs(gps_lng):.4f}_{moisture:.0f}pct.jpg")
             else:
                 cv2.putText(frame, "GPS: NO FIX", (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,255,0), 2)
-                fname = (f"moisture_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                fname = (f"moisture_{captured_at.strftime('%Y%m%d_%H%M%S')}"
                          f"_nofixgps_{moisture:.0f}pct.jpg")
             
             fpath = self.save_path / fname

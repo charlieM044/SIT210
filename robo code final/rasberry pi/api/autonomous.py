@@ -243,6 +243,7 @@ def _loop():
                 if sensor['moisture'] is not None and sensor['moisture_updated_at'] > last_saved_moisture_at:
                     last_save = now
                     try:
+                        reading_time = datetime.now()
                         severity   = _determine_severity(sensor['moisture'])
                         image_path = None
 
@@ -255,11 +256,13 @@ def _loop():
                                     sensor.get('gps_lat'),
                                     sensor.get('gps_lng'),
                                     sensor['moisture'],
+                                    captured_at=reading_time,
                                 )
                             except Exception as e:
                                 print(f"[Auto] image capture failed: {e}")
 
                         latest_reading = _build_reading_snapshot(sensor)
+                        latest_reading['timestamp'] = reading_time.isoformat(sep=' ', timespec='seconds')
                         state['latest_reading'] = latest_reading
 
                         # Save to disk database in the background
@@ -269,6 +272,7 @@ def _loop():
                             moisture   = sensor['moisture'],
                             image_path = image_path,
                             severity   = severity,
+                            reading_time = reading_time,
                         )
                         last_saved_moisture_at = sensor['moisture_updated_at']
 

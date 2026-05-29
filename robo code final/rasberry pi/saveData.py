@@ -62,7 +62,7 @@ class LocalDataManager:
 
     # ── Write ──────────────────────────────────────────────────────────────────
     def add_moisture_reading(self, gps_lat, gps_lng, moisture,
-                             image_path=None, severity='Minor'):
+                             image_path=None, severity='Minor', reading_time=None):
         if not self._validate(gps_lat, gps_lng, moisture):
             return False
         try:
@@ -70,7 +70,7 @@ class LocalDataManager:
             if image_path and os.path.exists(image_path):
                 image_filename = self._save_image(image_path, gps_lat, gps_lng)
 
-            now = datetime.now()
+            now = reading_time or datetime.now()
             row = {
                 'id':        None,
                 'timestamp': now.isoformat(sep=' ', timespec='seconds'),
@@ -84,7 +84,7 @@ class LocalDataManager:
             }
             threading.Thread(
                 target=self._write_db,
-                args=(gps_lat, gps_lng, moisture, image_filename, severity),
+                args=(gps_lat, gps_lng, moisture, image_filename, severity, now),
                 daemon=True
             ).start()
             with self._lock:
@@ -96,9 +96,9 @@ class LocalDataManager:
             return False
 
     def _write_db(self, gps_lat, gps_lng, moisture,
-                  image_filename, severity):
+                  image_filename, severity, reading_time=None):
         try:
-            now = datetime.now()
+            now = reading_time or datetime.now()
             with sqlite3.connect(self.db_path) as conn:
                 conn.execute(
                     '''INSERT INTO moisture_readings
@@ -193,6 +193,12 @@ class LocalDataManager:
 
     def _save_image(self, source, gps_lat, gps_lng):
         try:
+            source_path = Path(source)
+
+            # If the camera already saved the image inside IMAGE_DIR, reuse it.
+            if source_path.parent.resolve() == self.images_path.resolve():
+                return source_path.name
+
             ts    = datetime.now().strftime('%Y%m%d_%H%M%S')
             # GPS coordinates optional
             if gps_lat is not None and gps_lng is not None:
