@@ -82,16 +82,45 @@ def get_storage():
 
 @data_bp.route('/api/image/<path:filename>')
 def get_image_by_filename(filename):
-    # Resolve and validate path to prevent traversal outside IMAGE_DIR.
     image_root = Path(IMAGE_DIR).resolve()
-    image_path = (image_root / filename).resolve()
+    safe_name = Path(filename).name
+    image_path = (image_root / safe_name).resolve()
 
-    if image_root not in image_path.parents or image_path.suffix.lower() != '.jpg':
+    if image_root not in image_path.parents and image_path != image_root:
         return jsonify({'error': 'invalid image path'}), 400
-    if not image_path.exists() or not image_path.is_file():
-        return jsonify({'error': 'image not found'}), 404
+    if image_path.exists() and image_path.is_file() and image_path.suffix.lower() == '.jpg':
+        return Response(image_path.read_bytes(), mimetype='image/jpeg')
 
-    return Response(image_path.read_bytes(), mimetype='image/jpeg')
+    return jsonify({'error': 'image not found'}), 404
+
+
+@data_bp.route('/api/image-for-reading')
+def get_image_for_reading():
+    image_root = Path(IMAGE_DIR).resolve()
+    timestamp = request.args.get('timestamp', '').strip()
+    image_filename = request.args.get('image_filename', '').strip()
+
+    candidates = []
+
+    if image_filename:
+        safe_name = Path(image_filename).name
+        candidates.append((image_root / safe_name).resolve())
+
+    if timestamp:
+        try:
+            parsed_time = datetime.fromisoformat(timestamp)
+            timestamp_prefix = parsed_time.strftime('%Y%m%d_%H%M%S')
+            candidates.extend(sorted(image_root.glob(f'moisture_{timestamp_prefix}*.jpg')))
+        except ValueError:
+            pass
+
+    for candidate in candidates:
+        if candidate.exists() and candidate.is_file() and candidate.suffix.lower() == '.jpg':
+            if image_root not in candidate.parents and candidate != image_root:
+                continue
+            return Response(candidate.read_bytes(), mimetype='image/jpeg')
+
+    return jsonify({'error': 'image not found'}), 404
   
 
 
