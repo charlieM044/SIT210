@@ -5,14 +5,11 @@ Reads real sensor data from Arduino serial messages.
 
 import time
 import threading
-from collections import deque
 from datetime import datetime
 from config import (
     SENSOR_SAVE_INTERVAL,
-    MOISTURE_MODERATE,
     MOISTURE_DRY_RAW,
     MOISTURE_WET_RAW,
-    MOISTURE_SMOOTHING_WINDOW,
 )
 from state import state
 from hardware import motors
@@ -20,11 +17,14 @@ from hardware.arduino import read_line, parse, clear_buffer
 from saveData import storage
 
 
-def _determine_severity(moisture):
-    from config import MOISTURE_CRITICAL, MOISTURE_MODERATE
-    if moisture > MOISTURE_CRITICAL: return 'Critical'
-    if moisture > MOISTURE_MODERATE: return 'Moderate'
-    return 'Minor'
+def _label_to_severity(label):
+    mapping = {
+        'WET': 'Critical',
+        'MOIST': 'Moderate',
+        'DRY': 'Minor',
+        'THRESHOLD_TRIGGERED': 'Critical',
+    }
+    return mapping.get((label or '').strip().upper(), 'Minor')
 
 
 def _raw_to_percent(raw_value):
@@ -38,9 +38,10 @@ def _raw_to_percent(raw_value):
 def _build_reading_snapshot(sensor):
     return {
         'moisture': sensor['moisture'],
+        'moisture_instant': sensor.get('moisture_instant'),
         'moisture_label': sensor.get('moisture_label', ''),
         'moisture_raw': sensor.get('moisture_raw'),
-        'severity': _determine_severity(sensor['moisture']),
+        'severity': sensor.get('severity', 'Minor'),
         'gps_lat': sensor.get('gps_lat'),
         'gps_lng': sensor.get('gps_lng'),
         'timestamp': datetime.now().isoformat(),
@@ -52,9 +53,10 @@ _sensor_state = {
     'gps_lat':  None,
     'gps_lng':  None,
     'moisture': None,
+    'moisture_instant': None,
     'moisture_raw': None,
-    'moisture_raw_avg': None,
     'moisture_label': None,
+    'severity': 'Minor',
     'moisture_updated_at': 0.0,
     'gps_updated_at': 0.0,
     'ultrasonic_status': None,  # 'safe' | 'wall' | 'error'
@@ -62,7 +64,6 @@ _sensor_state = {
     'gps_status': None,         # 'ok' | 'no_fix'
 }
 _sensor_lock = threading.Lock()
-_moisture_samples = deque(maxlen=MOISTURE_SMOOTHING_WINDOW)
 
 
 def read_sensors():
@@ -97,16 +98,16 @@ def _process_parsed(parsed):
             if parsed.get('status') == 'ok':
                 raw = parsed.get('raw')
                 if raw is not None:
-                    _moisture_samples.append(raw)
-                    averaged_raw = sum(_moisture_samples) / len(_moisture_samples)
                     _sensor_state['moisture_raw'] = raw
-                    _sensor_state['moisture_raw_avg'] = averaged_raw
-                    _sensor_state['moisture'] = round(_raw_to_percent(averaged_raw), 1)
+                    _sensor_state['moisture_instant'] = round(_raw_to_percent(raw), 1)
+                    _sensor_state['moisture'] = _sensor_state['moisture_instant']
                 _sensor_state['moisture_label'] = parsed.get('label')
+                _sensor_state['severity'] = _label_to_severity(parsed.get('label'))
                 _sensor_state['moisture_updated_at'] = time.time()
             elif parsed.get('status') == 'threshold_triggered':
                 # Keep last moisture value but flag it
                 _sensor_state['moisture_label'] = 'THRESHOLD_TRIGGERED'
+                _sensor_state['severity'] = 'Critical'
 
     elif t == 'gps':
         with _sensor_lock:
@@ -244,12 +245,12 @@ def _loop():
                     last_save = now
                     try:
                         reading_time = datetime.now()
-                        severity   = _determine_severity(sensor['moisture'])
+                        severity   = sensor.get('severity', 'Minor')
                         image_path = None
 
                         # Capture image regardless of GPS status
                         # GPS coordinates can be null, but image is still valuable
-                        if sensor['moisture'] > MOISTURE_MODERATE:
+                        if sensor.get('severity') != 'Minor':
                             from hardware import camera
                             try:
                                 image_path = camera.capture_image(

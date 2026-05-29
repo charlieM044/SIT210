@@ -3,7 +3,7 @@ api/routes/data.py  –  Sensor data and storage endpoints.
 """
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from flask import Blueprint, Response, jsonify, request
 from state import state
