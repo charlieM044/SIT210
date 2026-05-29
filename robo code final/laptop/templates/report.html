@@ -206,6 +206,20 @@
     tbody tr:hover { background: rgba(255,255,255,.02); }
     tbody td { padding: 10px 18px; color: var(--text); white-space: nowrap; }
 
+    .thumb {
+      width: 72px;
+      height: 54px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      display: block;
+    }
+
+    .thumb-link {
+      display: inline-block;
+      line-height: 0;
+    }
+
     .mono { font-family: var(--mono); font-size: 12px; }
 
     .badge {
@@ -261,6 +275,13 @@
     @media (max-width: 900px) {
       .stat-row { grid-template-columns: repeat(2,1fr); }
       .health-grid { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      .thumb {
+        width: 120px;
+        height: auto;
+      }
     }
   </style>
 </head>
@@ -351,10 +372,11 @@
             <th>Moisture</th>
             <th>IR Temp</th>
             <th>Severity</th>
+            <th>Image</th>
           </tr>
         </thead>
         <tbody id="allTbody">
-          <tr><td colspan="7"><div class="empty">LOADING…</div></td></tr>
+          <tr><td colspan="8"><div class="empty">LOADING…</div></td></tr>
         </tbody>
       </table>
     </div>
@@ -535,7 +557,7 @@
       const tbody = document.getElementById('allTbody');
 
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="7"><div class="empty">NO READINGS YET</div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8"><div class="empty">NO READINGS YET</div></td></tr>';
       } else {
         tbody.innerHTML = rows.map((r, i) => {
           const ts   = r.timestamp ? r.timestamp.substring(0,19) : (r.date && r.time ? r.date+' '+r.time : '—');
@@ -544,6 +566,11 @@
           const mois = r.moisture != null ? Number(r.moisture).toFixed(1) + '%' : '—';
           const temp = r.ir_temp  != null ? Number(r.ir_temp).toFixed(1)  + '°C' : '—';
           const col  = r.moisture != null ? moistureColor(r.moisture) : 'inherit';
+          const img  = r.image_filename
+            ? `<a class="thumb-link" href="/api/image/${encodeURIComponent(r.image_filename)}" target="_blank" rel="noopener">` +
+              `<img class="thumb" src="/api/image/${encodeURIComponent(r.image_filename)}" alt="Reading image">` +
+              `</a>`
+            : '—';
           return `<tr>
             <td class="mono" style="color:var(--dim)">${allReadings.length - i}</td>
             <td class="mono">${ts}</td>
@@ -552,6 +579,7 @@
             <td class="mono" style="color:${col}">${mois}</td>
             <td class="mono">${temp}</td>
             <td>${severityBadge(r.severity)}</td>
+            <td>${img}</td>
           </tr>`;
         }).join('');
       }
@@ -565,7 +593,7 @@
   // ── Export ─────────────────────────────────────────────────────────────────
   function exportCSV() {
     if (!allReadings.length) return alert('No data to export.');
-    const cols = ['timestamp','gps_lat','gps_lng','moisture','ir_temp','severity'];
+    const cols = ['timestamp','gps_lat','gps_lng','moisture','ir_temp','severity','image_filename'];
     const header = cols.join(',');
     const body   = allReadings.map(r => cols.map(c => JSON.stringify(r[c] ?? '')).join(',')).join('\n');
     const blob   = new Blob([header + '\n' + body], { type: 'text/csv' });

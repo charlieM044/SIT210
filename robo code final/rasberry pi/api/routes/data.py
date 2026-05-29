@@ -4,9 +4,11 @@ api/routes/data.py  –  Sensor data and storage endpoints.
 
 import time
 from datetime import datetime
-from flask import Blueprint, jsonify, request
+from pathlib import Path
+from flask import Blueprint, Response, jsonify, request
 from state import state
 from saveData import storage
+from config import IMAGE_DIR
 
 data_bp = Blueprint('data', __name__)
 
@@ -31,7 +33,7 @@ def get_readings():
     return jsonify(readings)
 
 
-@data_bp.route('/api/latest-reading')
+
 @data_bp.route('/api/latest-reading')
 def get_latest_reading():
     """Return just the most recent live sensor reading from memory (fast for live updates)."""
@@ -60,4 +62,32 @@ def get_critical():
 
 @data_bp.route('/api/storage')
 def get_storage():
-    return jsonify(storage.get_storage_info())
+    data_type = request.args.get('type')
+
+    if data_type not in ('images', 'sensor_data'):
+        return jsonify({'error': 'type must be images or sensor_data'}), 400
+
+    if data_type == 'images':
+        image_bytes = storage.get_image()
+        if image_bytes is None:
+            return jsonify({'error': 'no images available'}), 404
+        return Response(image_bytes, mimetype='image/jpeg')
+ 
+    return jsonify(storage.get_all_readings())
+
+
+@data_bp.route('/api/image/<path:filename>')
+def get_image_by_filename(filename):
+    # Resolve and validate path to prevent traversal outside IMAGE_DIR.
+    image_root = Path(IMAGE_DIR).resolve()
+    image_path = (image_root / filename).resolve()
+
+    if image_root not in image_path.parents or image_path.suffix.lower() != '.jpg':
+        return jsonify({'error': 'invalid image path'}), 400
+    if not image_path.exists() or not image_path.is_file():
+        return jsonify({'error': 'image not found'}), 404
+
+    return Response(image_path.read_bytes(), mimetype='image/jpeg')
+  
+
+

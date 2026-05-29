@@ -158,6 +158,18 @@
                 <img src="/video_feed" width="640" height="480"
                      style="width:100%; border-radius:8px;"
                      onerror="this.outerHTML='<p style=\'color:#999;text-align:center;padding:40px\'>Video feed offline</p>'">
+
+                <div style="margin-top:16px; border-top:1px solid #eee; padding-top:14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3 style="margin:0; color:#333; font-size:1.05em;">🖼 Latest Captured Image</h3>
+                        <button class="btn" style="flex:0; padding:8px 12px; background:#667eea; color:white;" onclick="refreshLatestImage()">Refresh</button>
+                    </div>
+                    <img id="latestCapturedImage"
+                         src=""
+                         alt="Latest captured moisture image"
+                         style="width:100%; border-radius:8px; display:none; border:1px solid #eee;">
+                    <p id="latestImageStatus" style="color:#777; text-align:center; padding:14px 6px; margin:0;">No image loaded yet</p>
+                </div>
             </div>
 
                 <!-- Control card -->
@@ -350,6 +362,28 @@
             updateStatus('🚨 EMERGENCY STOP ACTIVATED', false);
         }
 
+        async function refreshLatestImage() {
+            const img = document.getElementById('latestCapturedImage');
+            const status = document.getElementById('latestImageStatus');
+            status.textContent = 'Loading latest image...';
+            try {
+                const res = await fetch(`/api/storage?type=images&t=${Date.now()}`);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                const blob = await res.blob();
+                if (!blob.type || !blob.type.startsWith('image/')) {
+                    throw new Error('Response is not an image');
+                }
+                img.src = URL.createObjectURL(blob);
+                img.style.display = 'block';
+                status.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+            } catch (err) {
+                img.style.display = 'none';
+                status.textContent = 'No image available from Pi server';
+            }
+        }
+
         document.addEventListener('keydown', (e) => {
             if (currentMode !== 'manual') return;
             switch(e.key) {
@@ -378,6 +412,12 @@
                 await initSpeedSlider();
             } catch {
                 // non-fatal — slider stays at default 60%
+            }
+
+            try {
+                await refreshLatestImage();
+            } catch {
+                // non-fatal
             }
         });
     </script>

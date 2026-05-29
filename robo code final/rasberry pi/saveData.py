@@ -199,6 +199,15 @@ class LocalDataManager:
             print(f"[Storage] invalid moisture: {moisture}"); return False
         return True
 
+    @staticmethod
+    def get_image():
+        images = list(Path(IMAGE_DIR).glob('*.jpg'))
+        if not images:
+            return None
+        latest_image = max(images, key=lambda p: p.stat().st_mtime)
+        return latest_image.read_bytes()
+        
+        
 
 # Module-level singleton
 storage = LocalDataManager()

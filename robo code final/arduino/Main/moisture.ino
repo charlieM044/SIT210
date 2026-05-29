@@ -19,7 +19,7 @@ void readMoisture() {
     int moistureValue = analogRead(MOISTURE_PIN);
     
     // 2. Send structured data to the Pi
-    Serial.print("MOISTURE:");
+    Serial.print("MOISTURE:");ff
     Serial.print(moistureValue);
     Serial.print(",");
 

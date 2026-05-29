@@ -17,7 +17,7 @@ CORS(app)
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-PI_SERVER = os.environ.get('PI_SERVER', 'http://10.50.80.118:5000')
+PI_SERVER = os.environ.get('PI_SERVER', 'http://10.188.44.118:5000')
 
 # ── Connection cache (5 s) ─────────────────────────────────────────────────────
 _last_check = 0
@@ -55,10 +55,25 @@ def proxy_get(endpoint):
     try:
         r = requests.get(f'{PI_SERVER}/api/{endpoint}',
                          params=request.args, timeout=5)
-        return jsonify(r.json()), r.status_code
+        content_type = (r.headers.get('content-type') or '').lower()
+        if 'application/json' in content_type:
+            return jsonify(r.json()), r.status_code
+        return Response(r.content, status=r.status_code,
+                        content_type=r.headers.get('content-type'))
     except Exception as e:
         log.error(f'GET {endpoint}: {e}')
         return jsonify({}), 503
+
+
+@app.route('/api/image/<path:filename>')
+def proxy_image(filename):
+    try:
+        r = requests.get(f'{PI_SERVER}/api/image/{filename}', timeout=5)
+        return Response(r.content, status=r.status_code,
+                        content_type=r.headers.get('content-type', 'image/jpeg'))
+    except Exception as e:
+        log.error(f'GET image/{filename}: {e}')
+        return jsonify({'error': 'image proxy unavailable'}), 503
 
 # ── Motor control ──────────────────────────────────────────────────────────────
 # Accepts POST /api/control  body: {"command": "forward"} — matches control.html

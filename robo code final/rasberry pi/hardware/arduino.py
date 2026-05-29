@@ -11,6 +11,11 @@ Added in this revision:
 import time
 import threading
 from config import SERIAL_PORT, SERIAL_BAUD
+
+# Calibrated raw range for the inverted moisture sensor.
+# Lower raw values mean wetter soil; higher values mean drier soil.
+MOISTURE_WET_RAW = 200
+MOISTURE_DRY_RAW = 600
  
 arduino   = None
 _serial_lock = threading.Lock()
@@ -117,7 +122,9 @@ def parse(line):
             parts = body.split(',')
             raw   = int(parts[0])
             label = parts[1].strip() if len(parts) > 1 else None
-            pct = round((raw / 1023) * 100, 1)
+            span = max(1, MOISTURE_DRY_RAW - MOISTURE_WET_RAW)
+            pct = round((1 - ((raw - MOISTURE_WET_RAW) / span)) * 100, 1)
+            pct = max(0.0, min(100.0, pct))
             return {'type': 'moisture', 'status': 'ok',
                     'raw': raw, 'label': label, 'percent': pct,
                     'triggered': False}
