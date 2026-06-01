@@ -1,425 +1,757 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robot Control Panel</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDRX-1 // Control</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #0a0c0f;
+      --surface: #111418;
+      --border:  #1e2329;
+      --muted:   #2a3040;
+      --text:    #c8d0dc;
+      --dim:     #5a6478;
+      --accent:  #00e5ff;
+      --warn:    #ffb300;
+      --danger:  #ff3d57;
+      --ok:      #00e676;
+      --mono:    'Space Mono', monospace;
+      --sans:    'DM Sans', sans-serif;
+    }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+    * { margin:0; padding:0; box-sizing:border-box; }
 
-        .container { max-width: 1200px; margin: 0 auto; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: 56px 1fr;
+    }
 
-        header { color: white; margin-bottom: 30px; }
-        header h1 { font-size: 2.5em; margin-bottom: 10px; }
+    /* ── TOPBAR ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
 
-        .controls-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
+    .logo {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-        .card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: blink 2s ease-in-out infinite;
+    }
 
-        .card h2 {
-            color: #333;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #667eea;
-            padding-bottom: 10px;
-        }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #f44336;
-            margin-right: 8px;
-            animation: pulse 2s infinite;
-        }
+    nav { display:flex; gap:2px; }
+    nav a {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 4px;
+      transition: all .2s;
+    }
+    nav a:hover, nav a.active { color: var(--accent); background: rgba(0,229,255,.07); }
 
-        .status-indicator.online { background: #4caf50; }
+    /* ── CONN BADGE ── */
+    .conn-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .08em;
+      padding: 5px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all .3s;
+    }
+    .conn-badge.online { border-color: var(--ok); color: var(--ok); }
+    .conn-badge.online .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+    .conn-badge.offline { border-color: var(--danger); color: var(--danger); }
+    .conn-badge.offline .dot { background: var(--danger); }
+    .conn-badge .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--dim);
+      flex-shrink: 0;
+    }
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
+    /* ── MAIN LAYOUT ── */
+    main {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      grid-template-rows: auto auto 1fr;
+      gap: 16px;
+      padding: 20px 24px;
+      align-content: start;
+      overflow-y: auto;
+    }
 
-        .status-box {
-            background: #f5f5f5;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
+    /* ── PANELS ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
 
-        .button-group { display: flex; gap: 10px; margin-bottom: 20px; }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+    }
 
-        .btn {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1em;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: bold;
-        }
+    .panel-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .12em;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
 
-        .btn-start { background: #4caf50; color: white; }
-        .btn-start:hover { background: #45a049; }
-        .btn-stop { background: #f44336; color: white; }
-        .btn-stop:hover { background: #da190b; }
+    .panel-body { padding: 16px 18px; }
 
-        .movement-pad {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin: 20px 0;
-        }
+    /* ── VIDEO ── */
+    .video-panel {
+      grid-column: 1;
+      grid-row: 1 / 3;
+    }
 
-        .movement-btn {
-            padding: 20px 10px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.2em;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-align: center;
-        }
+    .video-wrap {
+      position: relative;
+      background: #000;
+      aspect-ratio: 4/3;
+      overflow: hidden;
+    }
 
-        .movement-btn:hover { background: #5568d3; transform: scale(1.05); }
-        .movement-btn:active { transform: scale(0.95); }
+    .video-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
 
-        .forward    { grid-column: 2; grid-row: 1; }
-        .left       { grid-column: 1; grid-row: 2; }
-        .stop-center{ grid-column: 2; grid-row: 2; background: #ff9800; }
-        .stop-center:hover { background: #e68a00; }
-        .right      { grid-column: 3; grid-row: 2; }
-        .backward   { grid-column: 2; grid-row: 3; }
+    .video-overlay {
+      position: absolute;
+      top: 10px; left: 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--accent);
+      background: rgba(0,0,0,.6);
+      padding: 4px 8px;
+      border-radius: 3px;
+      letter-spacing: .08em;
+    }
 
-        .emergency-stop {
-            width: 100%;
-            padding: 20px;
-            background: #f44336;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.2em;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 15px;
-            transition: all 0.3s;
-        }
+    .video-offline {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #070a0d;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--dim);
+      letter-spacing: .1em;
+    }
 
-        .emergency-stop:hover { background: #da190b; }
+    .video-offline-icon {
+      font-size: 32px;
+      opacity: .3;
+    }
 
-        .back-btn {
-            display: inline-block;
-            color: white;
-            text-decoration: none;
-            margin-top: 20px;
-            font-size: 1.1em;
-        }
+    /* captured image section */
+    .capture-section {
+      padding: 14px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
 
-        .back-btn:hover { text-decoration: underline; }
+    .capture-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
 
-        @media (max-width: 768px) {
-            .controls-grid { grid-template-columns: 1fr; }
-        }
-    </style>
+    #capturedImg {
+      width: 100%;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      display: none;
+    }
+
+    #capturedStatus {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: .06em;
+    }
+
+    /* ── CONTROL PANEL ── */
+    .control-panel {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    /* Mode strip */
+    .mode-strip {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      margin-bottom: 16px;
+    }
+
+    .mode-btn {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .08em;
+      padding: 10px;
+      background: var(--bg);
+      border: none;
+      color: var(--dim);
+      cursor: pointer;
+      transition: all .2s;
+      text-align: center;
+    }
+
+    .mode-btn:hover { background: rgba(0,229,255,.05); color: var(--text); }
+    .mode-btn.active-manual { background: rgba(0,230,118,.08); color: var(--ok); }
+    .mode-btn.active-auto   { background: rgba(255,179,0,.08);  color: var(--warn); }
+
+    /* D-pad */
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      gap: 6px;
+      aspect-ratio: 1;
+      margin: 0 auto;
+      max-width: 220px;
+    }
+
+    .dpad-btn {
+      font-family: var(--mono);
+      font-size: 18px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+      user-select: none;
+    }
+
+    .dpad-btn:hover  { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,.06); }
+    .dpad-btn:active { transform: scale(.94); background: rgba(0,229,255,.12); }
+
+    .dpad-btn.stop-btn {
+      border-color: var(--danger);
+      color: var(--danger);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+    .dpad-btn.stop-btn:hover { background: rgba(255,61,87,.1); }
+
+    .dpad-corner { pointer-events: none; opacity: 0; }
+
+    /* Speed control */
+    .speed-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .speed-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: .08em;
+      white-space: nowrap;
+    }
+
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--muted);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 6px var(--accent);
+    }
+
+    .speed-val {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      min-width: 36px;
+      text-align: right;
+    }
+
+    /* Emergency stop */
+    .estop {
+      width: 100%;
+      margin-top: 14px;
+      padding: 12px;
+      background: rgba(255,61,87,.1);
+      border: 1px solid var(--danger);
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .1em;
+      color: var(--danger);
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .estop:hover { background: rgba(255,61,87,.2); }
+
+    /* Hint text */
+    .key-hint {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--dim);
+      text-align: center;
+      margin-top: 10px;
+      letter-spacing: .06em;
+    }
+
+    /* ── SENSOR PANEL ── */
+    .sensor-panel {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+    }
+
+    .sensor-cell {
+      background: var(--bg);
+      padding: 14px 12px;
+      text-align: center;
+    }
+
+    .sensor-key {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: .1em;
+      color: var(--dim);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .sensor-val {
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .sensor-sub {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--dim);
+      margin-top: 4px;
+    }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+      grid-column: 1 / -1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    .status-icon { font-size: 14px; }
+    .status-msg  { color: var(--text); flex: 1; }
+    .status-time { color: var(--dim); font-size: 10px; }
+
+    /* Icon btn (shared) */
+    .icon-btn {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .08em;
+      padding: 5px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--dim);
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      .video-panel { grid-row: auto; }
+      .control-panel, .sensor-panel { grid-column: 1; grid-row: auto; }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🎮 Robot Control Panel</h1>
-            <p style="color: rgba(255,255,255,0.9);">Remote robot command interface</p>
-        </header>
 
-        <div class="controls-grid">
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-dot"></div>
+    MDRX-1 // CONTROL
+  </div>
+  <nav>
+    <a href="/">DASHBOARD</a>
+    <a href="/map">MAP</a>
+    <a href="/report">REPORT</a>
+    <a href="/control" class="active">CONTROL</a>
+  </nav>
+  <div class="conn-badge" id="connBadge">
+    <div class="dot"></div>
+    <span id="connText">CONNECTING…</span>
+  </div>
+</div>
 
-            <!-- Video feed card -->
-            <div class="card">
-                <h2>📹 Video Feed</h2>
-                <img src="/video_feed" width="640" height="480"
-                     style="width:100%; border-radius:8px;"
-                     onerror="this.outerHTML='<p style=\'color:#999;text-align:center;padding:40px\'>Video feed offline</p>'">
+<main>
 
-                <div style="margin-top:16px; border-top:1px solid #eee; padding-top:14px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h3 style="margin:0; color:#333; font-size:1.05em;">🖼 Latest Captured Image</h3>
-                        <button class="btn" style="flex:0; padding:8px 12px; background:#667eea; color:white;" onclick="refreshLatestImage()">Refresh</button>
-                    </div>
-                    <img id="latestCapturedImage"
-                         src=""
-                         alt="Latest captured moisture image"
-                         style="width:100%; border-radius:8px; display:none; border:1px solid #eee;">
-                    <p id="latestImageStatus" style="color:#777; text-align:center; padding:14px 6px; margin:0;">No image loaded yet</p>
-                </div>
-            </div>
+  <!-- Status bar -->
+  <div class="status-bar" style="grid-column:1/-1; grid-row:1">
+    <span class="status-icon" id="statusIcon">◌</span>
+    <span class="status-msg"  id="statusMsg">Initializing…</span>
+    <span class="status-time" id="statusTime">—</span>
+  </div>
 
-                <!-- Control card -->
-            <div class="card">
-                <h2>🎮 Control Commands</h2>
-
-                <div class="status-box">
-                    <span class="status-indicator" id="statusLight"></span>
-                    <span id="statusText">Initializing...</span>
-                    <span id="modeBadge" style="
-                        margin-left: 12px;
-                        padding: 2px 10px;
-                        border-radius: 12px;
-                        font-size: 0.8em;
-                        font-weight: bold;
-                        background: #e0e0e0;
-                        color: #555;
-                    ">...</span>
-                </div>
-
-                <div class="button-group">
-                    <button class="btn btn-start" onclick="setRobotMode('manual')">▶️ MANUAL MODE</button>
-                    <button class="btn btn-stop"  onclick="setRobotMode('autonomous')">🤖 AUTONOMOUS</button>
-                </div>
-
-                <h3 style="margin: 20px 0 10px 0; color: #333;">Movement Controls</h3>
-                <div class="movement-pad">
-                    <button class="movement-btn forward"     onclick="sendRobotCommand('forward')">▲ Forward</button>
-                    <button class="movement-btn left"        onclick="sendRobotCommand('left')">◀ Left</button>
-                    <button class="movement-btn stop-center" onclick="sendRobotCommand('stop')">■ Stop</button>
-                    <button class="movement-btn right"       onclick="sendRobotCommand('right')">Right ▶</button>
-                    <button class="movement-btn backward"    onclick="sendRobotCommand('backward')">▼ Back</button>
-                </div>
-
-                <!-- Speed slider -->
-                <div style="margin: 20px 0 10px 0;">
-                    <label for="speed-slider" style="display:flex; justify-content:space-between; margin-bottom:6px; color:#333; font-weight:bold;">
-                        <span>⚡ Speed</span>
-                        <span id="speed-label">60</span>%
-                    </label>
-                    <input type="range" id="speed-slider" min="0" max="100" value="60" step="5"
-                        style="width:100%;"
-                        oninput="document.getElementById('speed-label').textContent = this.value">
-                </div>
-
-                <button class="emergency-stop" onclick="emergencyStop()">🚨 EMERGENCY STOP</button>
-
-                <p style="color:#666; font-size:0.9em; margin-top:15px; text-align:center;">
-                    💡 Arrow keys to move. Spacebar to stop.
-                </p>
-            </div>
-        <!-- Live sensor data -->
-        <div class="card" style="margin-top: 20px;">
-            <h2>📊 Live Sensor Data</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                <div class="status-box">
-                    <div style="font-size: 0.9em; color: #999;">Moisture</div>
-                    <div id="liveMoisture" style="font-size: 2em; font-weight: bold; color: #667eea;">—</div>
-                    <div style="font-size: 0.8em; color: #ccc;" id="moistureTime">no data</div>
-                </div>
-                <div class="status-box">
-                    <div style="font-size: 0.9em; color: #999;">GPS Status</div>
-                    <div id="liveGPS" style="font-size: 1.2em; font-weight: bold; color: #f44336;">NO FIX</div>
-                    <div style="font-size: 0.8em; color: #ccc;" id="gpsCoords">—</div>
-                </div>
-                <div class="status-box">
-                    <div style="font-size: 0.9em; color: #999;">Wall Distance</div>
-                    <div id="liveWall" style="font-size: 1.5em; font-weight: bold; color: #4caf50;">—</div>
-                    <div style="font-size: 0.8em; color: #ccc;">cm</div>
-                </div>
-            </div>
-        </div>
-
-        <a href="/" class="back-btn">← Back to Dashboard</a>
+  <!-- Video panel -->
+  <div class="panel video-panel" style="grid-row:2/4">
+    <div class="panel-head">
+      <span class="panel-title">Live Feed</span>
+      <span class="panel-title" id="feedLabel" style="color:var(--danger)">OFFLINE</span>
+    </div>
+    <div class="video-wrap">
+      <img id="videoFeed" src="/video_feed"
+           onload="document.getElementById('feedLabel').textContent='LIVE'; document.getElementById('feedLabel').style.color='var(--ok)'"
+           onerror="showVideoOffline()">
+      <div class="video-overlay" id="videoOverlay">REC ●</div>
     </div>
 
-    <script>
-        let currentMode = 'manual';
+    <div class="capture-section">
+      <div class="capture-head">
+        <span class="panel-title">Latest Capture</span>
+        <button class="icon-btn" onclick="refreshCapture()">↺ REFRESH</button>
+      </div>
+      <img id="capturedImg" alt="Latest captured image">
+      <div id="capturedStatus">No capture loaded</div>
+    </div>
+  </div>
 
-        function updateStatus(message, online = false) {
-            document.getElementById('statusText').textContent = message;
-            document.getElementById('statusLight').classList.toggle('online', online);
+  <!-- Control panel -->
+  <div class="panel control-panel">
+    <div class="panel-head">
+      <span class="panel-title">Commands</span>
+      <span class="panel-title" id="modeLabel">—</span>
+    </div>
+    <div class="panel-body">
+
+      <!-- Mode toggle -->
+      <div class="mode-strip">
+        <button class="mode-btn" id="btnManual" onclick="setMode('manual')">▶ MANUAL</button>
+        <button class="mode-btn" id="btnAuto"   onclick="setMode('autonomous')">⬡ AUTONOMOUS</button>
+      </div>
+
+      <!-- D-pad -->
+      <div class="dpad">
+        <div class="dpad-corner"></div>
+        <button class="dpad-btn" onclick="cmd('forward')"  title="Forward (↑)">▲</button>
+        <div class="dpad-corner"></div>
+        <button class="dpad-btn" onclick="cmd('left')"     title="Left (←)">◀</button>
+        <button class="dpad-btn stop-btn" onclick="cmd('stop')" title="Stop (Space)">STOP</button>
+        <button class="dpad-btn" onclick="cmd('right')"    title="Right (→)">▶</button>
+        <div class="dpad-corner"></div>
+        <button class="dpad-btn" onclick="cmd('backward')" title="Back (↓)">▼</button>
+        <div class="dpad-corner"></div>
+      </div>
+
+      <!-- Speed -->
+      <div class="speed-row">
+        <span class="speed-label">SPEED</span>
+        <input type="range" id="speedSlider" min="0" max="100" value="60" step="5"
+               oninput="document.getElementById('speedVal').textContent = this.value + '%'">
+        <span class="speed-val" id="speedVal">60%</span>
+      </div>
+
+      <!-- E-stop -->
+      <button class="estop" onclick="emergencyStop()">⬛ EMERGENCY STOP</button>
+
+      <p class="key-hint">↑↓←→ ARROW KEYS · SPACE TO STOP</p>
+    </div>
+  </div>
+
+  <!-- Sensor panel -->
+  <div class="panel sensor-panel">
+    <div class="panel-head">
+      <span class="panel-title">Live Sensors</span>
+      <span class="panel-title" id="sensorAge">—</span>
+    </div>
+    <div class="sensor-grid">
+      <div class="sensor-cell">
+        <div class="sensor-key">Moisture</div>
+        <div class="sensor-val" id="sMoisture">—</div>
+        <div class="sensor-sub" id="sSeverity">—</div>
+      </div>
+      <div class="sensor-cell">
+        <div class="sensor-key">GPS</div>
+        <div class="sensor-val" id="sGPS" style="font-size:13px">NO FIX</div>
+        <div class="sensor-sub" id="sCoords">—</div>
+      </div>
+      <div class="sensor-cell">
+        <div class="sensor-key">Uptime</div>
+        <div class="sensor-val" id="sUptime" style="font-size:16px">—</div>
+        <div class="sensor-sub">h m</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  let currentMode = 'manual';
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function setStatus(icon, msg) {
+    document.getElementById('statusIcon').textContent = icon;
+    document.getElementById('statusMsg').textContent  = msg;
+    document.getElementById('statusTime').textContent = new Date().toLocaleTimeString();
+  }
+
+  function setConn(online, label) {
+    const b = document.getElementById('connBadge');
+    b.className = 'conn-badge ' + (online ? 'online' : 'offline');
+    document.getElementById('connText').textContent = label;
+  }
+
+  function moistureColor(v) {
+    if (v >= 80) return 'var(--danger)';
+    if (v >= 60) return 'var(--warn)';
+    return 'var(--ok)';
+  }
+
+  function fmtUptime(s) {
+    if (!s && s !== 0) return '—';
+    return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+  }
+
+  function showVideoOffline() {
+    document.getElementById('feedLabel').textContent = 'OFFLINE';
+    document.getElementById('feedLabel').style.color = 'var(--danger)';
+    document.getElementById('videoOverlay').style.display = 'none';
+  }
+
+  // ── Mode ────────────────────────────────────────────────────────────────────
+  function applyMode(mode) {
+    currentMode = mode;
+    const bm = document.getElementById('btnManual');
+    const ba = document.getElementById('btnAuto');
+    const ml = document.getElementById('modeLabel');
+    bm.className = 'mode-btn' + (mode === 'manual' ? ' active-manual' : '');
+    ba.className = 'mode-btn' + (mode === 'autonomous' ? ' active-auto' : '');
+    ml.textContent = mode.toUpperCase();
+    ml.style.color  = mode === 'manual' ? 'var(--ok)' : 'var(--warn)';
+  }
+
+  async function setMode(m) {
+    try {
+      const r = await fetch('/api/mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: m })
+      });
+      const d = await r.json();
+      if (r.ok) {
+        applyMode(d.mode);
+        setStatus(m === 'manual' ? '●' : '⬡',
+          m === 'manual' ? 'Manual control enabled' : 'Autonomous mode active');
+      }
+    } catch (e) {
+      setStatus('✗', 'Mode switch failed');
+    }
+  }
+
+  // ── Commands ────────────────────────────────────────────────────────────────
+  async function cmd(command) {
+    const speed = command !== 'stop'
+      ? parseInt(document.getElementById('speedSlider').value)
+      : undefined;
+    try {
+      const r = await fetch('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command, ...(speed !== undefined && { speed }) })
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        setStatus('✗', d.error || 'Command rejected');
+      } else {
+        const msg = d.executed
+          ? `${command.toUpperCase()}${speed !== undefined ? ' @ ' + speed + '%' : ''}`
+          : 'Autonomous active — command ignored';
+        setStatus('→', msg);
+      }
+    } catch {
+      setStatus('✗', 'Connection error');
+      setConn(false, 'OFFLINE');
+    }
+  }
+
+  async function emergencyStop() {
+    await setMode('manual');
+    await cmd('stop');
+    setStatus('⬛', 'EMERGENCY STOP');
+  }
+
+  // ── Keyboard ────────────────────────────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (currentMode !== 'manual') return;
+    const map = { ArrowUp:'forward', ArrowDown:'backward', ArrowLeft:'left', ArrowRight:'right', ' ':'stop' };
+    if (map[e.key]) { cmd(map[e.key]); e.preventDefault(); }
+  });
+
+  // ── Sensor polling ──────────────────────────────────────────────────────────
+  setInterval(async () => {
+    try {
+      const r = await fetch('/api/latest-reading');
+      const d = await r.json();
+      if (d && d.moisture != null) {
+        const m = Number(d.moisture).toFixed(1);
+        const mc = document.getElementById('sMoisture');
+        mc.textContent = m + '%';
+        mc.style.color = moistureColor(Number(m));
+
+        const sev = (d.severity || 'minor').toLowerCase();
+        const sc = document.getElementById('sSeverity');
+        sc.textContent = sev.toUpperCase();
+        sc.style.color = sev === 'critical' ? 'var(--danger)' : sev === 'moderate' ? 'var(--warn)' : 'var(--ok)';
+
+        const ts = d.timestamp ? d.timestamp.substring(11,19) : d.time || '';
+        document.getElementById('sensorAge').textContent = ts;
+
+        if (d.gps_lat != null) {
+          document.getElementById('sGPS').textContent = 'FIXED';
+          document.getElementById('sGPS').style.color = 'var(--ok)';
+          document.getElementById('sCoords').textContent =
+            Number(d.gps_lat).toFixed(4) + ', ' + Number(d.gps_lng).toFixed(4);
         }
+      }
+    } catch {}
+  }, 500);
 
-        function updateMode(mode) {
-            currentMode = mode;
-            const badge = document.getElementById('modeBadge');
-            if (mode === 'manual') {
-                badge.textContent = 'MANUAL';
-                badge.style.background = '#c8e6c9';
-                badge.style.color = '#2e7d32';
-            } else {
-                badge.textContent = 'AUTONOMOUS';
-                badge.style.background = '#fff3e0';
-                badge.style.color = '#e65100';
-            }
-        }
+  // ── Status polling ──────────────────────────────────────────────────────────
+  setInterval(async () => {
+    try {
+      const r = await fetch('/api/status');
+      const d = await r.json();
+      setConn(d.connected, d.connected ? 'ONLINE' : 'OFFLINE');
+      document.getElementById('sUptime').textContent = fmtUptime(d.uptime_s);
+    } catch {
+      setConn(false, 'OFFLINE');
+    }
+  }, 3000);
 
-        // Live sensor updates every 500ms
-        setInterval(async () => {
-            try {
-                const r = await fetch('/api/latest-reading');
-                const reading = await r.json();
-                if (reading && reading.moisture !== null) {
-                    const moisture = Number(reading.moisture).toFixed(1);
-                    const color = moisture >= 80 ? '#f44336' : moisture >= 60 ? '#ff9800' : '#4caf50';
-                    document.getElementById('liveMoisture').textContent = moisture + '%';
-                    document.getElementById('liveMoisture').style.color = color;
-                    
-                    const ts = reading.timestamp ? reading.timestamp.substring(11, 19) : reading.time || '';
-                    document.getElementById('moistureTime').textContent = ts;
-                    
-                    if (reading.gps_lat != null && reading.gps_lng != null) {
-                        document.getElementById('liveGPS').textContent = '✓ FIXED';
-                        document.getElementById('liveGPS').style.color = '#4caf50';
-                        document.getElementById('gpsCoords').textContent = 
-                            Number(reading.gps_lat).toFixed(4) + ', ' + Number(reading.gps_lng).toFixed(4);
-                    }
-                }
-            } catch(e) {}
-        }, 500);
+  // ── Captured image ──────────────────────────────────────────────────────────
+  async function refreshCapture() {
+    const img = document.getElementById('capturedImg');
+    const st  = document.getElementById('capturedStatus');
+    st.textContent = 'Loading…';
+    try {
+      const r = await fetch(`/api/storage?type=images&t=${Date.now()}`);
+      if (!r.ok) throw new Error('no image');
+      const blob = await r.blob();
+      if (!blob.type.startsWith('image/')) throw new Error('not image');
+      img.src = URL.createObjectURL(blob);
+      img.style.display = 'block';
+      st.textContent = 'Updated ' + new Date().toLocaleTimeString();
+    } catch {
+      img.style.display = 'none';
+      st.textContent = 'No capture available';
+    }
+  }
 
-        async function sendRobotCommand(commandName) {
-            try {
-                const speed = commandName !== 'stop'
-                    ? parseInt(document.getElementById('speed-slider').value)
-                    : undefined;
+  // ── Init ────────────────────────────────────────────────────────────────────
+  window.addEventListener('load', async () => {
+    try {
+      const r = await fetch('/api/mode');
+      const d = await r.json();
+      applyMode(d.mode);
+      setStatus(d.mode === 'manual' ? '●' : '⬡',
+        d.mode === 'manual' ? 'Manual control enabled' : 'Autonomous mode active');
+    } catch {
+      setStatus('✗', 'Could not reach Pi');
+      setConn(false, 'OFFLINE');
+    }
 
-                const response = await fetch('/api/control', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ command: commandName, ...(speed !== undefined && { speed }) })
-                });
+    try {
+      const r = await fetch('/api/speed');
+      const d = await r.json();
+      if (d.speed != null) {
+        const s = Math.max(0, Math.min(100, Number(d.speed)));
+        document.getElementById('speedSlider').value = s;
+        document.getElementById('speedVal').textContent = s + '%';
+      }
+    } catch {}
 
-                const data = await response.json();
-                if (!response.ok) {
-                    updateStatus(`✗ Error: ${data.error || 'Command rejected'}`, false);
-                } else {
-                    const msg = data.executed
-                        ? `Moving: ${commandName.toUpperCase()}${speed !== undefined ? ` at ${speed}%` : ''}`
-                        : `Autonomous mode active — command ignored`;
-                    updateStatus(msg, data.executed);
-                }
-            } catch (err) {
-                console.error('Error sending command:', err);
-                updateStatus('✗ Connection Error', false);
-            }
-        }
-        
-        async function initSpeedSlider() {
-            try {
-                const res  = await fetch('/api/speed');
-                const data = await res.json();
-                if (data.speed !== null && data.speed !== undefined) {
-                    const speed = Number(data.speed);
-                    if (Number.isFinite(speed)) {
-                        document.getElementById('speed-slider').value = Math.max(0, Math.min(100, speed));
-                        document.getElementById('speed-label').textContent = String(speed);
-                    }
-                }
-            } catch {
-                // non-fatal — slider stays at default 60%
-            }
-        }
-
-        async function setRobotMode(modeName) {
-            try {
-                const response = await fetch('/api/mode', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ mode: modeName })
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    updateMode(data.mode);
-                    updateStatus(
-                        data.mode === 'manual' ? '✅ Manual control enabled' : '🤖 Autonomous mode active',
-                        true
-                    );
-                }
-            } catch (err) {
-                console.error('Error setting mode:', err);
-                updateStatus('❌ Mode switch failed', false);
-            }
-        }
-
-        async function emergencyStop() {
-            await setRobotMode('manual');
-            await sendRobotCommand('stop');
-            updateStatus('🚨 EMERGENCY STOP ACTIVATED', false);
-        }
-
-        async function refreshLatestImage() {
-            const img = document.getElementById('latestCapturedImage');
-            const status = document.getElementById('latestImageStatus');
-            status.textContent = 'Loading latest image...';
-            try {
-                const res = await fetch(`/api/storage?type=images&t=${Date.now()}`);
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}`);
-                }
-                const blob = await res.blob();
-                if (!blob.type || !blob.type.startsWith('image/')) {
-                    throw new Error('Response is not an image');
-                }
-                img.src = URL.createObjectURL(blob);
-                img.style.display = 'block';
-                status.textContent = `Updated ${new Date().toLocaleTimeString()}`;
-            } catch (err) {
-                img.style.display = 'none';
-                status.textContent = 'No image available from Pi server';
-            }
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (currentMode !== 'manual') return;
-            switch(e.key) {
-                case 'ArrowUp':    sendRobotCommand('forward');  e.preventDefault(); break;
-                case 'ArrowDown':  sendRobotCommand('backward'); e.preventDefault(); break;
-                case 'ArrowLeft':  sendRobotCommand('left');     e.preventDefault(); break;
-                case 'ArrowRight': sendRobotCommand('right');    e.preventDefault(); break;
-                case ' ':          sendRobotCommand('stop');     e.preventDefault(); break;
-            }
-        });
-
-        window.addEventListener('load', async () => {
-            try {
-                const r = await fetch('/api/mode');
-                const data = await r.json();
-                updateMode(data.mode);
-                updateStatus(
-                    data.mode === 'manual' ? '✅ Manual control enabled' : '🤖 Autonomous mode active',
-                    true
-                );
-            } catch (err) {
-                updateStatus('✗ Could not reach Pi', false);
-            }
-
-            try {
-                await initSpeedSlider();
-            } catch {
-                // non-fatal — slider stays at default 60%
-            }
-
-            try {
-                await refreshLatestImage();
-            } catch {
-                // non-fatal
-            }
-        });
-    </script>
+    try { await refreshCapture(); } catch {}
+  });
+</script>
 </body>
 </html>
