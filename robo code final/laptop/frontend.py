@@ -1,5 +1,5 @@
 """
-frontend.py  –  Runs on your PC (port 8000).
+frontend.py   Runs on your PC (port 8000).
 Proxies all requests to the Pi (port 5000) over WiFi.
 """
 
@@ -8,10 +8,17 @@ from flask_cors import CORS
 import requests
 import time
 import logging
+import webbrowser
+import threading
 
 import os
+import sys
 
-app = Flask(__name__)
+# Make templates accessible when bundled by PyInstaller.
+# When frozen, PyInstaller extracts files to sys._MEIPASS.
+base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+template_folder = os.path.join(base_path, 'templates')
+app = Flask(__name__, template_folder=template_folder)
 CORS(app)
 
 logging.basicConfig(level=logging.INFO)
@@ -163,4 +170,12 @@ def control_view(): return render_template('control.html')
 if __name__ == '__main__':
     print(f"\n  Frontend → Pi at {PI_SERVER}")
     print("  Open http://localhost:8000\n")
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    # When bundled by PyInstaller we must disable the Flask reloader
+    # and open the browser from a separate thread so the GUI app can
+    # be launched by double-clicking the exe without leaving a console.
+    def _open_browser():
+        time.sleep(1)
+        webbrowser.open('http://localhost:8000')
+
+    threading.Thread(target=_open_browser, daemon=True).start()
+    app.run(host='0.0.0.0', port=8000, debug=True, use_reloader=False)
